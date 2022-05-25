@@ -1,0 +1,63 @@
+name: Beautify branch name test
+
+on:
+  pull_request:
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+
+      - name: Downcase branch name
+        id: downcase
+        uses: ./beautify-branch-name
+        with:
+          branch_name: BRANCH-NAME-with-UPPer-CASe-letterS
+          downcase: true
+
+      - name: Check branch name downcased
+        run: |
+          [ "${{ steps.downcase.outputs.pretty_branch_name }}" == branch-name-with-upper-case-letters ] || exit 1
+
+
+      - name: Replace underscores
+        id: replace_underscores
+        uses: ./beautify-branch-name
+        with:
+          branch_name: branch_name_with-underscores
+          underscores_to_hyphens: true
+
+      - name: Check underscores replaced
+        run: |
+          [ "${{ steps.replace_underscores.outputs.pretty_branch_name }}" == branch-name-with-underscores ] || exit 1
+
+
+      - name: Truncate length
+        id: truncate_length
+        uses: ./beautify-branch-name
+        with:
+          branch_name: very-long-branch-name
+          length_limit: 12
+
+      - name: Check branch name truncated
+        run: |
+          [ "${{ steps.truncate_length.outputs.pretty_branch_name }}" == very-long-br ] || exit 1
+
+
+      - name: Validate length limit
+        id: validate_length_limit
+        continue-on-error: true
+        uses: ./beautify-branch-name
+        with:
+          branch_name: very-long-branch-name
+          length_limit: -1
+
+      - name: Check length limit not validated
+        if: ${{ steps.validate_length_limit.outcome != 'failure' }}
+        run: |
+          echo "Invalid length limit has not been rejected"
+          exit 1
