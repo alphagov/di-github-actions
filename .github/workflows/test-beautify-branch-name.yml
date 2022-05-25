@@ -48,6 +48,19 @@ jobs:
           [ "${{ steps.truncate_length.outputs.pretty_branch_name }}" == very-long-br ] || exit 1
 
 
+      - name: Prepend prefix
+        id: prepend_prefix
+        uses: ./beautify-branch-name
+        with:
+          branch_name: long-branch-name
+          prefix: prefix
+          length_limit: 20
+
+      - name: Check prefix prepended
+        run: |
+          [ "${{ steps.prepend_prefix.outputs.pretty_branch_name }}" == prefix-long-branch-n ] || exit 1
+
+
       - name: Validate length limit
         id: validate_length_limit
         continue-on-error: true

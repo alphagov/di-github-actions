@@ -16,6 +16,9 @@ inputs:
     description: 'Maximum length of the modified string'
     required: false
     default: '200'
+  prefix:
+    description: "'prefix-' will be prepended to the returned string. Included in the length limit"
+    required: false
 outputs:
   pretty_branch_name:
     description: 'Beautified branch name'
