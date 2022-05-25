@@ -1,0 +1,80 @@
+name: Beautify branch name test
+
+on:
+  pull_request:
+
+jobs:
+  test-downcase:
+    name: Downcase branch name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Beautify branch name
+        id: test_action
+        uses: ./beautify-branch-name
+        with:
+          branch_name: BRANCH-NAME-with-UPPer-CASe-letterS
+          downcase: true
+
+      - name: Check branch name downcased
+        run: |
+          [ "${{ steps.test_action.outputs.pretty_branch_name }}" == branch-name-with-upper-case-letters ] || exit 1
+
+  test-replace-underscores:
+    name: Replace underscores
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Beautify branch name
+        id: test_action
+        uses: ./beautify-branch-name
+        with:
+          branch_name: branch_name_with-underscores
+          underscores_to_hyphens: true
+
+      - name: Check hyphens replaced
+        run: |
+          [ "${{ steps.test_action.outputs.pretty_branch_name }}" == branch-name-with-underscores ] || exit 1
+
+  test-truncate:
+    name: Truncate length
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Beautify branch name
+        id: test_action
+        uses: ./beautify-branch-name
+        with:
+          branch_name: very-long-branch-name
+          length_limit: 12
+
+      - name: Check branch name truncated
+        run: |
+          [ "${{ steps.test_action.outputs.pretty_branch_name }}" == very-long-br ] || exit 1
+
+  test-validate-length-limit:
+    name: Validate length limit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Beautify branch name
+        id: test_action
+        continue-on-error: true
+        uses: ./beautify-branch-name
+        with:
+          branch_name: very-long-branch-name
+          length_limit: -1
+
+      - name: Check length limit validated
+        if: ${{ steps.test_action.outcome != 'failure' }}
+        run: |
+          echo "Invalid length limit has not been rejected"
+          exit 1
