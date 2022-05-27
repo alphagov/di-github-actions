@@ -1,0 +1,27 @@
+name: 'Beautify branch name'
+description: 'Modify the branch name to be usable in deployment and host names'
+inputs:
+  branch_name:
+    description: "Override the branch name to transform"
+    required: false
+  downcase:
+    description: 'Whether to downcase all letters in the branch name'
+    required: false
+    default: 'true'
+  underscores_to_hyphens:
+    description: 'Whether to replace all underscores with hyphens'
+    required: false
+    default: 'true'
+  length_limit:
+    description: 'Maximum length of the modified string'
+    required: false
+    default: '200'
+  prefix:
+    description: "'prefix-' will be prepended to the returned string. Included in the length limit"
+    required: false
+outputs:
+  pretty_branch_name:
+    description: 'Beautified branch name'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
