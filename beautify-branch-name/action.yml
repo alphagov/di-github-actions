@@ -19,6 +19,9 @@ inputs:
   prefix:
     description: "'prefix-' will be prepended to the returned string. Included in the length limit"
     required: false
+  set_env_var:
+    description: "Name of the environment variable to set in the job with the value of the modified branch name"
+    required: false
 outputs:
   pretty_branch_name:
     description: 'Beautified branch name'
