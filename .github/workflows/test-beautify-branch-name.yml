@@ -21,7 +21,7 @@ jobs:
 
       - name: Check branch name downcased
         run: |
-          [ "${{ steps.downcase.outputs.pretty_branch_name }}" == branch-name-with-upper-case-letters ] || exit 1
+          [[ ${{ steps.downcase.outputs.pretty_branch_name }} == branch-name-with-upper-case-letters ]]
 
 
       - name: Replace underscores
@@ -33,7 +33,7 @@ jobs:
 
       - name: Check underscores replaced
         run: |
-          [ "${{ steps.replace_underscores.outputs.pretty_branch_name }}" == branch-name-with-underscores ] || exit 1
+          [[ ${{ steps.replace_underscores.outputs.pretty_branch_name }} == branch-name-with-underscores ]]
 
 
       - name: Truncate length
@@ -45,7 +45,7 @@ jobs:
 
       - name: Check branch name truncated
         run: |
-          [ "${{ steps.truncate_length.outputs.pretty_branch_name }}" == very-long-br ] || exit 1
+          [[ ${{ steps.truncate_length.outputs.pretty_branch_name }} == very-long-br ]]
 
 
       - name: Prepend prefix
@@ -58,7 +58,7 @@ jobs:
 
       - name: Check prefix prepended
         run: |
-          [ "${{ steps.prepend_prefix.outputs.pretty_branch_name }}" == prefix-long-branch-n ] || exit 1
+          [[ ${{ steps.prepend_prefix.outputs.pretty_branch_name }} == prefix-long-branch-n ]]
 
 
       - name: Validate length limit
@@ -74,3 +74,14 @@ jobs:
         run: |
           echo "Invalid length limit has not been rejected"
           exit 1
+      
+
+      - name: Set environment variable
+        uses: ./beautify-branch-name
+        with:
+          branch_name: branch-name
+          set_env_var: PRETTY_BRANCH_NAME
+
+      - name: Check environment variable set
+        run: |
+          [[ $PRETTY_BRANCH_NAME == branch-name ]]
