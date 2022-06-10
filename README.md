@@ -33,9 +33,11 @@ for more info.
 
 - Create a directory at the root of this repository to contain all the action's files
 - Follow
-  the [documentation to create a Docker container action](https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action)
+  the [documentation to create a composite action](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action)
   or copy an existing action and modify as needed
-- Add a workflow in the `.github` directory of this repo to test the action's functionality
+- Add a workflow in the `.github` directory of this repo to test the action's functionality. The test workflow **must**
+  have one job called `Test action`. Take a look at the [existing tests](.github/workflows) to see how to test an
+  action.
 
 ### Guidelines for actions
 
@@ -49,6 +51,7 @@ behaviour.
 Each action should have a workflow associated with it that thoroughly verifies the action's behaviour. To use a specific
 action in a test, use the `uses: ./{action-directory}` syntax in the workflow.
 
-Create a workflow in the `.github` directory with a single job named `Test action` - this will ensure the tests will be required to pass on each pull request before merging is enabled.
+Create a workflow in the `.github` directory with a single job named `Test action` - this will ensure the tests will be
+required to pass on each pull request before merging is enabled.
 
 Add steps to the job as needed to test the action's behaviour.
