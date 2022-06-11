@@ -1,0 +1,32 @@
+name: 'Get stale stacks'
+description: 'Retrieve names of AWS SAM stacks older than a set threshold, and filtered by name and tags'
+inputs:
+  threshold-days:
+    description: "Get stacks older than the specified number of days"
+    required: false
+    default: "30"
+  stack-name-filter:
+    description: "Only retrieve stacks whose names contain the specified string"
+    required: false
+  stack-tag-filters:
+    description: "Filter stacks by tags - encoded as name=value pairs, separated by ' | ' (e.g. 'tag1=val1 | tag2=val 2')"
+    required: false
+  env-var-name:
+    description: "Accumulate stack names in the environment variable with the specified name, persisted in the job"
+    required: false
+outputs:
+  stack-names:
+    description: "Filtered stack names"
+    value: ${{ steps.filter-stacks.outputs.stack-names }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Filter stacks
+      id: filter-stacks
+      run: $GITHUB_ACTION_PATH/filter-stacks.sh
+      shell: bash
+      env:
+        THRESHOLD_DAYS: ${{ inputs.threshold-days }}
+        STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
+        STACK_TAG_FILTERS: ${{ inputs.stack-tag-filters }}
+        ENV_VAR_NAME: ${{ inputs.env-var-name }}
