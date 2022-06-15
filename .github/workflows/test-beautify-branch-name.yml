@@ -16,61 +16,61 @@ jobs:
         id: downcase
         uses: ./beautify-branch-name
         with:
-          branch_name: BRANCH-NAME-with-UPPer-CASe-letterS
+          branch-name: BRANCH-NAME-with-UPPer-CASe-letterS
           downcase: true
 
       - name: Check branch name downcased
         run: |
-          [[ ${{ steps.downcase.outputs.pretty_branch_name }} == branch-name-with-upper-case-letters ]]
+          [[ ${{ steps.downcase.outputs.pretty-branch-name }} == branch-name-with-upper-case-letters ]]
 
 
       - name: Replace underscores
-        id: replace_underscores
+        id: replace-underscores
         uses: ./beautify-branch-name
         with:
-          branch_name: branch_name_with-underscores
-          underscores_to_hyphens: true
+          branch-name: branch_name_with-underscores
+          underscores-to-hyphens: true
 
       - name: Check underscores replaced
         run: |
-          [[ ${{ steps.replace_underscores.outputs.pretty_branch_name }} == branch-name-with-underscores ]]
+          [[ ${{ steps.replace-underscores.outputs.pretty-branch-name }} == branch-name-with-underscores ]]
 
 
       - name: Truncate length
-        id: truncate_length
+        id: truncate-length
         uses: ./beautify-branch-name
         with:
-          branch_name: very-long-branch-name
-          length_limit: 12
+          branch-name: very-long-branch-name
+          length-limit: 12
 
       - name: Check branch name truncated
         run: |
-          [[ ${{ steps.truncate_length.outputs.pretty_branch_name }} == very-long-br ]]
+          [[ ${{ steps.truncate-length.outputs.pretty-branch-name }} == very-long-br ]]
 
 
       - name: Prepend prefix
-        id: prepend_prefix
+        id: prepend-prefix
         uses: ./beautify-branch-name
         with:
-          branch_name: long-branch-name
+          branch-name: long-branch-name
           prefix: prefix
-          length_limit: 20
+          length-limit: 20
 
       - name: Check prefix prepended
         run: |
-          [[ ${{ steps.prepend_prefix.outputs.pretty_branch_name }} == prefix-long-branch-n ]]
+          [[ ${{ steps.prepend-prefix.outputs.pretty-branch-name }} == prefix-long-branch-n ]]
 
 
       - name: Validate length limit
-        id: validate_length_limit
+        id: validate-length-limit
         continue-on-error: true
         uses: ./beautify-branch-name
         with:
-          branch_name: very-long-branch-name
-          length_limit: -1
+          branch-name: very-long-branch-name
+          length-limit: -1
 
       - name: Check length limit not validated
-        if: ${{ steps.validate_length_limit.outcome != 'failure' }}
+        if: ${{ steps.validate-length-limit.outcome != 'failure' }}
         run: |
           echo "Invalid length limit has not been rejected"
           exit 1
@@ -79,8 +79,8 @@ jobs:
       - name: Set environment variable
         uses: ./beautify-branch-name
         with:
-          branch_name: branch-name
-          set_env_var: PRETTY_BRANCH_NAME
+          branch-name: branch-name
+          set-env-var: PRETTY_BRANCH_NAME
 
       - name: Check environment variable set
         run: |

@@ -1,0 +1,87 @@
+name: Get stale stacks test
+
+on:
+  pull_request:
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Set up stub AWS CLI
+        run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
+
+      - name: Set up stub date util
+        run: |
+          echo "./.github/stubs/date" >> "$GITHUB_PATH"
+          echo "DATE_OVERRIDE=2022-05-20T12:00" >> "$GITHUB_ENV"
+
+
+      - name: Include stacks older than specified age
+        id: include-stale-stacks
+        uses: ./get-stale-stacks
+        with:
+          threshold-days: 20
+
+      - name: Check stacks older than specified age included
+        run: |
+          [[ "${{ steps.include-stale-stacks.outputs.stack-names }}" == "test-one test-two test-three dev-one dev-two dev-three" ]]
+
+
+      - name: Filter stacks by name
+        id: filter-stacks-by-name
+        uses: ./get-stale-stacks
+        with:
+          stack-name-filter: test
+
+      - name: Check stacks filtered by name
+        run: |
+          [[ "${{ steps.filter-stacks-by-name.outputs.stack-names }}" == "test-one test-three" ]]
+      
+
+      - name: Filter stacks with one tag
+        id: filter-stacks-one-tag
+        uses: ./get-stale-stacks
+        with:
+          stack-tag-filters: Colour=Yellow
+
+      - name: Check stacks filtered with one tag
+        run: |
+          [[ "${{ steps.filter-stacks-one-tag.outputs.stack-names }}" == "test-three dev-two" ]]
+
+
+      - name: Filter stacks with two tags
+        id: filter-stacks-two-tags
+        uses: ./get-stale-stacks
+        with:
+          stack-tag-filters: Colour=Blue | Type="Test Stack"
+
+      - name: Check stacks filtered with two tags
+        run: |
+          [[ "${{ steps.filter-stacks-two-tags.outputs.stack-names }}" == "test-one dev-one" ]]
+
+
+      - name: Set environment variable
+        uses: ./get-stale-stacks
+        with:
+          env-var-name: STALE_STACKS
+
+      - name: Check environment variable set
+        run: |
+          [[ $STALE_STACKS == "test-one test-three dev-one dev-two dev-three" ]]
+
+
+      - name: Set accumulated stacks env var
+        run: echo "ACCUMULATED_STACKS=extra-one extra-two" >> "$GITHUB_ENV"
+
+      - name: Accumulate stacks in environment variable
+        uses: ./get-stale-stacks
+        with:
+          env-var-name: ACCUMULATED_STACKS
+
+      - name: Check accumulated stacks environment variable set
+        run: |
+          [[ $ACCUMULATED_STACKS == "extra-one extra-two test-one test-three dev-one dev-two dev-three" ]]

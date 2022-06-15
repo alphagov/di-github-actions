@@ -1,30 +1,42 @@
 name: 'Beautify branch name'
 description: 'Modify the branch name to be usable in deployment and host names'
 inputs:
-  branch_name:
+  branch-name:
     description: "Override the branch name to transform"
     required: false
   downcase:
     description: 'Whether to downcase all letters in the branch name'
     required: false
     default: 'true'
-  underscores_to_hyphens:
+  underscores-to-hyphens:
     description: 'Whether to replace all underscores with hyphens'
     required: false
     default: 'true'
-  length_limit:
+  length-limit:
     description: 'Maximum length of the modified string'
     required: false
     default: '200'
   prefix:
     description: "'prefix-' will be prepended to the returned string. Included in the length limit"
     required: false
-  set_env_var:
+  set-env-var:
     description: "Name of the environment variable to set in the job with the value of the modified branch name"
     required: false
 outputs:
-  pretty_branch_name:
+  pretty-branch-name:
     description: 'Beautified branch name'
+    value: ${{ steps.transform-branch-name.outputs.pretty-branch-name }}
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: 'composite'
+  steps:
+    - name: Transform branch name
+      id: transform-branch-name
+      run: $GITHUB_ACTION_PATH/transform-branch-name.sh
+      shell: bash
+      env:
+        BRANCH_NAME: ${{ inputs.branch-name }}
+        DOWNCASE_NAME: ${{ inputs.downcase }}
+        UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens }}
+        TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
+        PREFIX: ${{ inputs.prefix }}
+        SET_ENV_VAR: ${{ inputs.set-env-var }}
