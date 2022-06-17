@@ -1,0 +1,31 @@
+name: 'Print a file to the job summary'
+description: 'Print the specified file to the current job summary with optional syntax highlighting'
+inputs:
+  file-path:
+    description: 'Path to the file to append to the job summary'
+    required: true
+  title:
+    description: 'Message to print above the report'
+    required: false
+  code-block:
+    description: 'Print the file contents in a code block'
+    required: false
+    default: 'true'
+  language:
+    description: 'Language to use for syntax highlighting when printing the file contents in a code block'
+    required: false
+  output-file-path:
+    description: 'Override the default destination and write the output to the specified file instead'
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    - name: Append to step summary
+      run: $GITHUB_ACTION_PATH/append-to-step-summary.sh
+      shell: bash
+      env:
+        FILE_PATH: ${{ inputs.file-path }}
+        TITLE: ${{ inputs.title }}
+        CODE_BLOCK: ${{ inputs.code-block }}
+        LANGUAGE: ${{ inputs.language }}
+        OUT_FILE: ${{ inputs.output-file-path }}

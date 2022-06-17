@@ -1,0 +1,138 @@
+name: Report step result test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    env:
+      REPORT_FILE_NAME: test-result.txt
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Write stub report
+        env:
+          REPORT_FILE: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+        run: echo "Stub result" >> "$REPORT_FILE"
+
+
+      - name: Report result
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report.txt
+          code-block: false
+
+      - name: Check result reported
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report.txt
+          EXPECTED_FILE: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+        run: |
+          [[ $(cat "$OUTPUT_FILE") == $(cat "$EXPECTED_FILE") ]]
+
+
+      - name: Accumulate results
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report.txt
+          code-block: false
+
+      - name: Check result accumulated
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Stub result
+          Stub result
+          
+          EOF
+          
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Include title
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report-with-title.txt
+          code-block: false
+          title: Report title
+
+      - name: Check title included
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-with-title.txt
+        run: |
+          cat << 'EOF' > expected_file
+          **Report title**
+          Stub result
+          
+          EOF
+          
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use code block
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report-code-block.txt
+          code-block: true
+
+      - name: Check title included
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-code-block.txt
+        run: |
+          cat << 'EOF' > expected_file
+          ```
+          Stub result
+          ```
+          EOF
+          
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use syntax highlighting
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report-syntax-highlight.txt
+          code-block: true
+          language: shell
+
+      - name: Check syntax highlighting used
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-syntax-highlight.txt
+        run: |
+          cat << 'EOF' > expected_file
+          ```shell
+          Stub result
+          ```
+          EOF
+          
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use all elements
+        uses: ./report-step-result
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/report-all-elements.txt
+          title: Report title
+          code-block: true
+          language: shell
+
+      - name: Check all elements used
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-all-elements.txt
+        run: |
+          cat << 'EOF' > expected_file
+          **Report title**
+          ```shell
+          Stub result
+          ```
+          EOF
+          
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
