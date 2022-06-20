@@ -1,0 +1,33 @@
+name: 'Build an AWS SAM application'
+description: 'Validates and builds the specified SAM application. The built artifact is found in the .aws-sam directory'
+inputs:
+  sam-template-file:
+    description: 'Name of the SAM template file to use'
+    required: false
+  aws-role-arn:
+    description: 'Aws role ARN to assume when validating the template'
+    required: true
+  aws-region:
+    description: 'AWS region to use'
+    required: false
+    default: eu-west-2
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Validate SAM template
+      shell: bash
+      env:
+        TEMPLATE_FILE: ${{ inputs.sam-template-file }}
+      run: sam validate ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
+
+    - name: Build SAM Application
+      shell: bash
+      env:
+        TEMPLATE_FILE: ${{ inputs.sam-template-file }}
+      run: sam build --cached --parallel ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
