@@ -31,7 +31,7 @@ runs:
   steps:
     - name: Transform branch name
       id: transform-branch-name
-      run: $GITHUB_ACTION_PATH/transform-branch-name.sh
+      run: ${{ github.action_path }}/transform-branch-name.sh
       shell: bash
       env:
         BRANCH_NAME: ${{ inputs.branch-name }}

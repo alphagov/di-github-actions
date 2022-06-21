@@ -21,7 +21,7 @@ runs:
   using: 'composite'
   steps:
     - name: Append to step summary
-      run: $GITHUB_ACTION_PATH/append-to-step-summary.sh
+      run: ${{ github.action_path }}/append-to-step-summary.sh
       shell: bash
       env:
         FILE_PATH: ${{ inputs.file-path }}

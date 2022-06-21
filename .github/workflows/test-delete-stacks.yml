@@ -1,0 +1,76 @@
+name: Delete stacks test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    env:
+      DELETED_STACKS_FILE: deleted_stacks
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Set up stub AWS CLI
+        run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
+
+      - name: Set up stub SAM CLI
+        run: echo "./.github/stubs/sam" >> "$GITHUB_PATH"
+
+
+      - name: Attempt to delete a non-existent stack
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: non-existent-stack-name
+
+      - name: Check non-existent stack not deleted
+        run: |
+          [[ -z $DELETED_STACKS ]]
+
+
+      - name: Attempt to delete a stack in a good state
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: create-complete-state-stack
+          only-if-failed: true
+
+      - name: Check stack in good state not deleted
+        run: |
+          [[ -z $DELETED_STACKS ]]
+
+
+      - name: Delete a stack in a bad state
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: delete-failed-state-stack
+          only-if-failed: true
+
+      - name: Check stack in bad state deleted
+        run: |
+          [[ $DELETED_STACKS == delete-failed-state-stack ]]
+          rm -f "$DELETED_STACKS_FILE"
+
+
+      - name: Delete a stack in a good state
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: create-complete-state-stack
+          aws-region: test-region
+
+      - name: Check stack in good state deleted
+        run: |
+          [[ $DELETED_STACKS == create-complete-state-stack ]]          
+          [[ $DELETED_STACKS_REGION == test-region ]]
+          rm -f "$DELETED_STACKS_FILE"
+      
+
+      - name: Delete multiple stacks
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: test-one invalid-stack test-two delete-failed-state-stack
+
+      - name: Check multiple stacks deleted
+        run: |
+          [[ "$DELETED_STACKS" == "test-one test-two delete-failed-state-stack" ]]
+          rm -f "$DELETED_STACKS_FILE"

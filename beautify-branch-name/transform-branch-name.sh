@@ -28,5 +28,5 @@ if [[ $env_var ]]; then
   echo "$env_var=$branch_name" >> "$GITHUB_ENV"
 fi
 
-echo "Pretty branch name: $branch_name" >> "$GITHUB_STEP_SUMMARY"
+echo "Pretty branch name: \`$branch_name\`" >> "$GITHUB_STEP_SUMMARY"
 cat "$GITHUB_STEP_SUMMARY"
