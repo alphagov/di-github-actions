@@ -58,10 +58,11 @@ if [[ $env_var ]]; then
   echo "$env_var=${stale_stacks[*]}" >> "$GITHUB_ENV"
 fi
 
-[[ ${#stale_stacks[@]} -eq 0 ]] && exit
-echo "Stale stacks:" >> "$GITHUB_STEP_SUMMARY"
-for stack in "${stale_stacks[@]}"; do
-  echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
-done
+if [[ ${#stale_stacks[@]} -gt 0 ]]; then
+  echo "Stale stacks:" >> "$GITHUB_STEP_SUMMARY"
+  for stack in "${stale_stacks[@]}"; do
+    echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
+  done
 
-cat "$GITHUB_STEP_SUMMARY"
+  cat "$GITHUB_STEP_SUMMARY"
+fi

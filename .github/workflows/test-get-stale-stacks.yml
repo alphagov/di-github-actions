@@ -21,7 +21,7 @@ jobs:
 
       - name: Include stacks older than specified age
         id: include-stale-stacks
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           threshold-days: 20
 
@@ -32,7 +32,7 @@ jobs:
 
       - name: Filter stacks by name
         id: filter-stacks-by-name
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           stack-name-filter: test
 
@@ -43,7 +43,7 @@ jobs:
 
       - name: Filter stacks with one tag
         id: filter-stacks-one-tag
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           stack-tag-filters: Colour=Yellow
 
@@ -54,7 +54,7 @@ jobs:
 
       - name: Filter stacks with two tags
         id: filter-stacks-two-tags
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           stack-tag-filters: Colour=Blue | Type="Test Stack"
 
@@ -64,7 +64,7 @@ jobs:
 
 
       - name: Set environment variable
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           env-var-name: STALE_STACKS
 
@@ -77,7 +77,7 @@ jobs:
         run: echo "ACCUMULATED_STACKS=extra-one extra-two" >> "$GITHUB_ENV"
 
       - name: Accumulate stacks in environment variable
-        uses: ./get-stale-stacks
+        uses: ./sam/get-stale-stacks
         with:
           env-var-name: ACCUMULATED_STACKS
 
