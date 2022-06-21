@@ -1,0 +1,23 @@
+name: 'Check SAM stack exists'
+description: 'Checks whether the specified AWS SAM stack exists using the AWS credentials configured in the job'
+inputs:
+  stack-names:
+    description: 'Names of the stacks to check (space-delimited string)'
+    required: true
+  set-env-var:
+    description: "Name of the environment variable to set in the job with the value of the existing stacks"
+    required: false
+outputs:
+  existing-stacks:
+    description: 'Names of the stacks confirmed to exist (space-delimited string)'
+    value: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Check stack exists
+      id: check-stacks-exist
+      run: ${{ github.action_path }}/check-stacks-exist.sh
+      shell: bash
+      env:
+        STACK_NAMES: ${{ inputs.stack-names }}
+        SET_ENV_VAR: ${{ inputs.set-env-var }}

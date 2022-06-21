@@ -1,0 +1,95 @@
+name: Check stacks exist test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Set up stub AWS CLI
+        run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
+
+
+      - name: Verify one stack exists
+        id: verify-one-stack-exists
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: test-one
+
+      - name: Check one stack's existence verified
+        run: |
+          [[ ${{ steps.verify-one-stack-exists.outputs.existing-stacks }} == test-one ]]
+
+
+      - name: Verify multiple stacks exists
+        id: verify-many-stacks-exist
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: test-one test-two test-three
+
+      - name: Check many stacks' existence verified
+        run: |
+          [[ "${{ steps.verify-many-stacks-exist.outputs.existing-stacks }}" == "test-one test-two test-three" ]]
+
+
+      - name: Verify one stack does not exists
+        id: verify-one-stack-does-not-exists
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: invalid-stack
+
+      - name: Check one stack's non-existence verified
+        env:
+          EXISTING_STACKS: ${{ steps.verify-one-stack-does-not-exists.outputs.existing-stacks }}
+        run: |
+          [[ -z $EXISTING_STACKS ]]
+
+
+      - name: Verify multiple stacks do not exists
+        id: verify-many-stacks-do-not-exist
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: invalid-stack-one invalid-stack-two invalid-stack-three
+
+      - name: Check many stacks' non-existence verified
+        env:
+          EXISTING_STACKS: ${{ steps.verify-many-stacks-do-not-exist.outputs.existing-stacks }}
+        run: |
+          [[ -z $EXISTING_STACKS ]]
+
+
+      - name: Verify some stacks exists
+        id: verify-some-stacks-exist
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: test-one invalid-stack-one invalid-stack-two test-two invalid-stack-three test-three
+
+      - name: Check some stacks' existence verified
+        run: |
+          [[ "${{ steps.verify-some-stacks-exist.outputs.existing-stacks }}" == "test-one test-two test-three" ]]
+      
+
+      - name: Set environment variable with one value
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: test-one
+          set-env-var: EXISTING_STACK
+
+      - name: Check environment variable set with one value
+        run: |
+          [[ $EXISTING_STACK == test-one ]]
+          
+
+      - name: Set environment variable with multiple values
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: test-one test-two test-three
+          set-env-var: EXISTING_STACKS
+
+      - name: Check environment variable set with multiple values
+        run: |
+          [[ "$EXISTING_STACKS" == "test-one test-two test-three" ]]
