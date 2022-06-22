@@ -1,0 +1,63 @@
+name: 'Run Checkov'
+description: 'Run Checkov and report results to the job summary if there are failing checks'
+inputs:
+  path:
+    description: 'Only run checks on files matching the specified path filter'
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if merge commit
+      id: check-merge-commit
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        merging=false
+        [[ $EVENT == pull_request ]] && merging=true && fetch_depth=2
+        echo "::set-output name=fetch-depth::${fetch_depth:-}"
+        echo "MERGING=$merging" >> "$GITHUB_ENV"
+
+    - name: Pull repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: ${{ steps.check-merge-commit.outputs.fetch-depth }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        cache-dependency-path: ./.github/workflows
+        cache: 'pip'
+
+    - name: Install Checkov
+      run: echo "::group::pip output" && pip install checkov && echo "::endgroup::"
+      shell: bash
+
+    - name: Run Checkov
+      id: run-checkov
+      shell: bash
+      env:
+        DIR: ${{ inputs.path }}
+        OUTPUT_FILE: ${{ runner.temp }}/checkov.output
+      run: |
+        if $MERGING; then
+          files=$(git diff --name-only HEAD^...HEAD)
+          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files")
+          mapfile -t files <<< "$files"
+          read -ra files <<< "${files[@]/#/-f }"
+          checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
+        else
+          if [[ $DIR ]]; then
+            checkov --quiet -d "$DIR" | tee "$OUTPUT_FILE"
+          else
+            checkov --quiet -d . | tee "$OUTPUT_FILE"
+            [[ -d .github ]] && checkov --quiet -d .github | tee -a "$OUTPUT_FILE"
+          fi
+        fi
+
+    - name: Report Checkov result
+      if: ${{ failure() && steps.run-checkov.outcome == 'failure' }}
+      uses: alphagov/di-github-actions/report-step-result@6801ec483702f0fdf25fa3063a0d5945fd48d2a0
+      with:
+        file-path: ${{ runner.temp }}/checkov.output

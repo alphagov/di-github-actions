@@ -70,6 +70,18 @@
       "StackName": "dev-three",
       "LastUpdatedTime": "2022-04-01T17:13:00.018000+00:00",
       "Tags": []
+    },
+    {
+      "StackName": "delete-failed-state-stack",
+      "LastUpdatedTime": "2022-05-01T17:13:00.018000+00:00",
+      "StackStatus": "DELETE_FAILED",
+      "Tags": []
+    },
+    {
+      "StackName": "create-complete-state-stack",
+      "LastUpdatedTime": "2022-05-01T17:13:00.018000+00:00",
+      "StackStatus": "CREATE_COMPLETE",
+      "Tags": []
     }
   ]
 }

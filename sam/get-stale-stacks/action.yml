@@ -23,7 +23,7 @@ runs:
   steps:
     - name: Filter stacks
       id: filter-stacks
-      run: $GITHUB_ACTION_PATH/filter-stacks.sh
+      run: ${{ github.action_path }}/filter-stacks.sh
       shell: bash
       env:
         THRESHOLD_DAYS: ${{ inputs.threshold-days }}

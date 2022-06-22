@@ -1,10 +1,14 @@
 set -eu
 
 branch_name=${PREFIX:+$PREFIX-}${BRANCH_NAME:-${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}}
-downcase=${DOWNCASE_NAME}
-replace_underscores=${UNDERSCORES_TO_HYPHENS}
 length_limit=${TOTAL_LENGTH_LIMIT}
 env_var=${SET_ENV_VAR}
+
+replace_underscores=false
+[[ ${UNDERSCORES_TO_HYPHENS} == true ]] && replace_underscores=true
+
+downcase=false
+[[ ${DOWNCASE_NAME} == true ]] && downcase=true
 
 if [[ $length_limit -lt 1 ]]; then
   echo "Invalid length limit: $length_limit - must be greater than 0"
@@ -24,5 +28,5 @@ if [[ $env_var ]]; then
   echo "$env_var=$branch_name" >> "$GITHUB_ENV"
 fi
 
-echo "Pretty branch name: $branch_name" >> "$GITHUB_STEP_SUMMARY"
+echo "Pretty branch name: \`$branch_name\`" >> "$GITHUB_STEP_SUMMARY"
 cat "$GITHUB_STEP_SUMMARY"
