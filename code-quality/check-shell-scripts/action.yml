@@ -9,6 +9,9 @@ inputs:
     description: 'Whether to run shfmt'
     required: false
     default: 'true'
+  shell:
+    description: 'Specify the dialect for shellcheck to use (sh, bash, dash, ksh)'
+    required: false
   file-extensions:
     description: 'Run checks on files with the specified extensions (newline-delimited string)'
     required: false
@@ -62,10 +65,11 @@ runs:
       if: ${{ env.SCRIPTS && inputs.run-shellcheck }}
       shell: bash
       env:
+        DIALECT: ${{ inputs.shell }}
         OUTPUT_FILE: ${{ runner.temp }}/shellcheck.output
       run: |
         read -ra scripts <<< "$SCRIPTS"
-        shellcheck "${scripts[@]}" | tee "$OUTPUT_FILE"
+        shellcheck ${DIALECT:+--shell=$DIALECT} "${scripts[@]}" | tee "$OUTPUT_FILE"
 
     - name: Run shfmt
       id: run-shfmt
