@@ -1,0 +1,105 @@
+name: 'Check shell scripts'
+description: 'Runs shellcheck and shfmt on shell scripts and reports results to the job summary if there are violations'
+inputs:
+  run-shellcheck:
+    description: 'Whether to run shellcheck'
+    required: false
+    default: 'true'
+  run-shfmt:
+    description: 'Whether to run shfmt'
+    required: false
+    default: 'true'
+  file-extensions:
+    description: 'Run checks on files with the specified extensions (newline-delimited string)'
+    required: false
+    default: .sh
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if merge commit
+      id: check-merge-commit
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        merging=false
+        [[ $EVENT == pull_request ]] && merging=true && fetch_depth=2
+        echo "::set-output name=fetch-depth::${fetch_depth:-}"
+        echo "MERGING=$merging" >> "$GITHUB_ENV"
+
+    - name: Pull repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: ${{ steps.check-merge-commit.outputs.fetch-depth }}
+
+    - name: Install shell check tools
+      shell: bash
+      run: |
+        echo "::group::Install packages"
+        sudo apt-get update && sudo apt-get install shellcheck snapd && sudo snap install shfmt
+        echo "::endgroup::"
+
+    - name: Get shell scripts to check
+      id: get-scripts
+      shell: bash
+      env:
+        TYPES: ${{ inputs.file-extensions }}
+      run: |
+        types="$(echo -n "$TYPES")"
+        
+        if $MERGING; then
+          mapfile -t scripts < <(git diff --name-only HEAD^...HEAD | grep -F "$types")
+        else
+          shopt -s globstar dotglob
+          mapfile -t types <<< "$types"
+          scripts=$(eval echo "**/*{${types[*]}}")
+        fi
+        
+        echo "SCRIPTS=${scripts[*]}" >> "$GITHUB_ENV"
+
+    - name: Run shellcheck
+      id: run-shellcheck
+      if: ${{ env.SCRIPTS && inputs.run-shellcheck }}
+      shell: bash
+      env:
+        OUTPUT_FILE: ${{ runner.temp }}/shellcheck.output
+      run: |
+        read -ra scripts <<< "$SCRIPTS"
+        shellcheck "${scripts[@]}" | tee "$OUTPUT_FILE"
+
+    - name: Run shfmt
+      id: run-shfmt
+      if: ${{ ((success() && env.SCRIPTS) || (failure() && steps.run-shellcheck.outcome == 'failure')) && inputs.run-shfmt }}
+      shell: bash
+      env:
+        OUTPUT_FILE: ${{ runner.temp }}/shfmt.output
+      run: |
+        read -ra scripts <<< "$SCRIPTS"
+        shfmt -d -sr -i 2 "${scripts[@]}" | tee "$OUTPUT_FILE"
+
+    - name: Write shellcheck results
+      id: report-shellcheck
+      if: ${{ failure() && steps.run-shellcheck.outcome == 'failure' }}
+      uses: alphagov/di-github-actions/report-step-result@6801ec483702f0fdf25fa3063a0d5945fd48d2a0
+      with:
+        file-path: ${{ runner.temp }}/shellcheck.output
+        output-file-path: ${{ runner.temp }}/checks.report
+        title: Shellcheck
+        language: shell
+
+    - name: Write shfmt results
+      id: report-shfmt
+      if: ${{ failure() && steps.run-shfmt.outcome == 'failure' }}
+      uses: alphagov/di-github-actions/report-step-result@6801ec483702f0fdf25fa3063a0d5945fd48d2a0
+      with:
+        file-path: ${{ runner.temp }}/shfmt.output
+        output-file-path: ${{ runner.temp }}/checks.report
+        title: Shell formatting
+        language: diff
+
+    - name: Report results
+      if: ${{ failure() && (steps.report-shellcheck.outcome == 'success' || steps.report-shfmt.outcome == 'success') }}
+      uses: alphagov/di-github-actions/report-step-result@6801ec483702f0fdf25fa3063a0d5945fd48d2a0
+      with:
+        file-path: ${{ runner.temp }}/checks.report
+        code-block: false
