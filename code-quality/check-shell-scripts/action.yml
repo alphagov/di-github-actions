@@ -48,7 +48,7 @@ runs:
         types="$(echo -n "$TYPES")"
         
         if $MERGING; then
-          mapfile -t scripts < <(git diff --name-only HEAD^...HEAD | grep -F "$types")
+          mapfile -t scripts < <(git diff --name-only --diff-filter=d HEAD^...HEAD | grep -F "$types")
         else
           shopt -s globstar dotglob
           mapfile -t types <<< "$types"

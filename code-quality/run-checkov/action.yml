@@ -42,7 +42,7 @@ runs:
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
       run: |
         if $MERGING; then
-          files=$(git diff --name-only HEAD^...HEAD)
+          files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
           [[ $DIR ]] && files=$(grep "$DIR" <<< "$files")
           mapfile -t files <<< "$files"
           read -ra files <<< "${files[@]/#/-f }"
