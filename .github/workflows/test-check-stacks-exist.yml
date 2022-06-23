@@ -19,6 +19,7 @@ jobs:
         uses: ./sam/check-stacks-exist
         with:
           stack-names: test-one
+          verbose: 'true'
 
       - name: Check one stack's existence verified
         run: |
@@ -30,6 +31,7 @@ jobs:
         uses: ./sam/check-stacks-exist
         with:
           stack-names: test-one test-two test-three
+          verbose: 'true'
 
       - name: Check many stacks' existence verified
         run: |
@@ -41,6 +43,7 @@ jobs:
         uses: ./sam/check-stacks-exist
         with:
           stack-names: invalid-stack
+          verbose: 'true'
 
       - name: Check one stack's non-existence verified
         env:
@@ -54,6 +57,7 @@ jobs:
         uses: ./sam/check-stacks-exist
         with:
           stack-names: invalid-stack-one invalid-stack-two invalid-stack-three
+          verbose: 'true'
 
       - name: Check many stacks' non-existence verified
         env:
@@ -67,6 +71,7 @@ jobs:
         uses: ./sam/check-stacks-exist
         with:
           stack-names: test-one invalid-stack-one invalid-stack-two test-two invalid-stack-three test-three
+          verbose: 'true'
 
       - name: Check some stacks' existence verified
         run: |
@@ -78,6 +83,7 @@ jobs:
         with:
           stack-names: test-one
           set-env-var: EXISTING_STACK
+          verbose: 'true'
 
       - name: Check environment variable set with one value
         run: |
@@ -89,6 +95,7 @@ jobs:
         with:
           stack-names: test-one test-two test-three
           set-env-var: EXISTING_STACKS
+          verbose: 'true'
 
       - name: Check environment variable set with multiple values
         run: |

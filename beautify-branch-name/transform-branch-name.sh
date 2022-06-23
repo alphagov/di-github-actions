@@ -3,6 +3,7 @@ set -eu
 branch_name=${PREFIX:+$PREFIX-}${BRANCH_NAME:-${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}}
 length_limit=${TOTAL_LENGTH_LIMIT}
 env_var=${SET_ENV_VAR}
+message=${USAGE}
 
 replace_underscores=false
 [[ ${UNDERSCORES_TO_HYPHENS} == true ]] && replace_underscores=true
@@ -28,5 +29,5 @@ if [[ $env_var ]]; then
   echo "$env_var=$branch_name" >> "$GITHUB_ENV"
 fi
 
-echo "Pretty branch name: \`$branch_name\`" >> "$GITHUB_STEP_SUMMARY"
+echo "${message:-Pretty branch name}: \`$branch_name\`" >> "$GITHUB_STEP_SUMMARY"
 cat "$GITHUB_STEP_SUMMARY"

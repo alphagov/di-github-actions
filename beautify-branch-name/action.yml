@@ -22,6 +22,9 @@ inputs:
   set-env-var:
     description: "Name of the environment variable to set in the job with the value of the modified branch name"
     required: false
+  usage:
+    description: 'The purpose for which the transformed name is used - for logging purposes only'
+    required: false
 outputs:
   pretty-branch-name:
     description: 'Beautified branch name'
@@ -40,3 +43,4 @@ runs:
         TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
         PREFIX: ${{ inputs.prefix }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}
+        USAGE: ${{ inputs.usage }}

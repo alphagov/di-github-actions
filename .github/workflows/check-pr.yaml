@@ -1,0 +1,26 @@
+name: Check PR
+
+on: pull_request
+
+jobs:
+  run-checkov:
+    name: Run Checkov
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Run Checkov
+        uses: ./code-quality/run-checkov
+
+  check-shell-scripts:
+    name: Check shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Run shell checks
+        uses: ./code-quality/check-shell-scripts
+        with:
+          shell: bash

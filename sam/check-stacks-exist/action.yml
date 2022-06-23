@@ -7,6 +7,10 @@ inputs:
   set-env-var:
     description: "Name of the environment variable to set in the job with the value of the existing stacks"
     required: false
+  verbose:
+    description: 'Print the list of existing stacks to the job summary'
+    required: false
+    default: 'false'
 outputs:
   existing-stacks:
     description: 'Names of the stacks confirmed to exist (space-delimited string)'
@@ -21,3 +25,4 @@ runs:
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}
+        VERBOSE: ${{ inputs.verbose }}
