@@ -17,6 +17,10 @@ inputs:
   output-file-path:
     description: 'Override the default destination and write the output to the specified file instead'
     required: false
+  fail-if-report-missing:
+    description: 'The action should exit with an error status if the specified report file can not be found'
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
@@ -29,3 +33,4 @@ runs:
         CODE_BLOCK: ${{ inputs.code-block }}
         LANGUAGE: ${{ inputs.language }}
         OUT_FILE: ${{ inputs.output-file-path }}
+        FAIL_IF_FILE_MISSING: ${{ inputs.fail-if-report-missing }}
