@@ -18,7 +18,7 @@ runs:
     - name: Check stacks exist
       id: check-stacks-exist
       if: ${{ inputs.stack-names }}
-      uses: alphagov/di-github-actions/sam/check-stacks-exist@5337497aaa56b4a52d2052aab59ef294af7f7a51
+      uses: alphagov/di-github-actions/sam/check-stacks-exist@a142f7f22cc41ce8466e32deb68ff4994bee3e4c
       with:
         stack-names: ${{ inputs.stack-names }}
         verbose: true
