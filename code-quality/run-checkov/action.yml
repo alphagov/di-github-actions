@@ -43,10 +43,13 @@ runs:
       run: |
         if $MERGING; then
           files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files")
-          mapfile -t files <<< "$files"
-          read -ra files <<< "${files[@]/#/-f }"
-          checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
+          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files" || true)
+        
+          if [[ $files ]]; then
+            mapfile -t files <<< "$files"
+            read -ra files <<< "${files[@]/#/-f }"
+            checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
+          fi
         else
           if [[ $DIR ]]; then
             checkov --quiet -d "$DIR" | tee "$OUTPUT_FILE"
