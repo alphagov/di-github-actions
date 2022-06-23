@@ -14,6 +14,9 @@ inputs:
   env-var-name:
     description: "Accumulate stack names in the environment variable with the specified name, persisted in the job"
     required: false
+  description:
+    description: 'Description of the stale stacks - for logging purposes only'
+    required: false
 outputs:
   stack-names:
     description: "Filtered stack names"
@@ -30,3 +33,4 @@ runs:
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
         STACK_TAG_FILTERS: ${{ inputs.stack-tag-filters }}
         ENV_VAR_NAME: ${{ inputs.env-var-name }}
+        STACKS_DESCRIPTION: ${{ inputs.description }}
