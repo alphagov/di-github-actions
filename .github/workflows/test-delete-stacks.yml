@@ -63,7 +63,7 @@ jobs:
           [[ $DELETED_STACKS == create-complete-state-stack ]]          
           [[ $DELETED_STACKS_REGION == test-region ]]
           rm -f "$DELETED_STACKS_FILE"
-      
+
 
       - name: Delete multiple stacks
         uses: ./sam/delete-stacks
@@ -71,6 +71,21 @@ jobs:
           stack-names: test-one invalid-stack test-two delete-failed-state-stack
 
       - name: Check multiple stacks deleted
+        run: |
+          [[ "$DELETED_STACKS" == "test-one test-two delete-failed-state-stack" ]]
+          rm -f "$DELETED_STACKS_FILE"
+
+
+      - name: Delete multiple newline-delimited stacks
+        uses: ./sam/delete-stacks
+        with:
+          stack-names: |
+            test-one
+            invalid-stack
+            test-two
+            delete-failed-state-stack
+
+      - name: Check multiple newline-delimited stacks deleted
         run: |
           [[ "$DELETED_STACKS" == "test-one test-two delete-failed-state-stack" ]]
           rm -f "$DELETED_STACKS_FILE"

@@ -2,7 +2,7 @@ name: 'Delete SAM stacks'
 description: 'Delete existing AWS SAM stacks and optionally check their state'
 inputs:
   stack-names:
-    description: 'Names of the stacks to delete (space-delimited string)'
+    description: 'Names of the stacks to delete (space or newline-delimited string)'
     required: true
   aws-region:
     description: 'AWS region to use'

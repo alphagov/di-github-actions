@@ -38,6 +38,21 @@ jobs:
           [[ "${{ steps.verify-many-stacks-exist.outputs.existing-stacks }}" == "test-one test-two test-three" ]]
 
 
+      - name: Verify multiple newline-delimited stacks exists
+        id: verify-many-stacks-exist-newline
+        uses: ./sam/check-stacks-exist
+        with:
+          stack-names: |
+            test-one
+            test-two
+            test-three
+          verbose: 'true'
+
+      - name: Check many newline-delimited stacks' existence verified
+        run: |
+          [[ "${{ steps.verify-many-stacks-exist-newline.outputs.existing-stacks }}" == "test-one test-two test-three" ]]
+
+
       - name: Verify one stack does not exists
         id: verify-one-stack-does-not-exists
         uses: ./sam/check-stacks-exist
@@ -76,7 +91,7 @@ jobs:
       - name: Check some stacks' existence verified
         run: |
           [[ "${{ steps.verify-some-stacks-exist.outputs.existing-stacks }}" == "test-one test-two test-three" ]]
-      
+
 
       - name: Set environment variable with one value
         uses: ./sam/check-stacks-exist
@@ -88,7 +103,7 @@ jobs:
       - name: Check environment variable set with one value
         run: |
           [[ $EXISTING_STACK == test-one ]]
-          
+
 
       - name: Set environment variable with multiple values
         uses: ./sam/check-stacks-exist
