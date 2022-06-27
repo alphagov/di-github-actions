@@ -3,6 +3,7 @@ set -eu
 threshold=${THRESHOLD_DAYS}
 name_filter=${STACK_NAME_FILTER}
 env_var=${ENV_VAR_NAME}
+description=${STACKS_DESCRIPTION}
 
 IFS='|' read -ra tags <<< "${STACK_TAG_FILTERS}"
 
@@ -16,11 +17,11 @@ if [[ ${#tags[@]} -gt 0 ]]; then
   done
 fi
 
-stale_stacks=()
 if [[ $env_var ]]; then
+  imported_stacks=()
   declare -n env_var_ref=$env_var
-  read -ra stale_stacks <<< "${env_var_ref:-}"
-  [[ ${#stale_stacks[@]} -gt 0 ]] && echo "Importing existing stacks: ${stale_stacks[*]}"
+  read -ra imported_stacks <<< "${env_var_ref:-}"
+  [[ ${#imported_stacks[@]} -gt 0 ]] && echo "Importing existing stacks: ${imported_stacks[*]}"
 fi
 
 cut_off_date=$(date -d "$threshold days ago" +%Y-%m-%d)
@@ -32,6 +33,7 @@ stack_names=$(jq -r '.StackName' <<< "$stacks")
 [[ $name_filter ]] && stack_names=$(grep "$name_filter" <<< "$stack_names")
 mapfile -t stack_names <<< "$stack_names"
 
+stale_stacks=()
 for stack in "${stack_names[@]}"; do
   stack_info=$(jq --arg name "$stack" 'select(.StackName == $name)' <<< "$stacks")
   stack_tags=$(jq '.Tags[]' <<< "$stack_info")
@@ -54,15 +56,18 @@ done
 echo "::set-output name=stack-names::${stale_stacks[*]}"
 
 if [[ $env_var ]]; then
+  all_stacks=("${imported_stacks[@]}" "${stale_stacks[@]}")
   echo "Setting environment variable $env_var..."
-  echo "$env_var=${stale_stacks[*]}" >> "$GITHUB_ENV"
+  echo "$env_var=${all_stacks[*]}" >> "$GITHUB_ENV"
 fi
 
 if [[ ${#stale_stacks[@]} -gt 0 ]]; then
-  echo "Stale stacks:" >> "$GITHUB_STEP_SUMMARY"
+  echo "Stale ${description:+$description }stacks:" >> "$GITHUB_STEP_SUMMARY"
   for stack in "${stale_stacks[@]}"; do
     echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
   done
-
-  cat "$GITHUB_STEP_SUMMARY"
+else
+  echo "There are no stale ${description:+$description }stacks" >> "$GITHUB_STEP_SUMMARY"
 fi
+
+cat "$GITHUB_STEP_SUMMARY"

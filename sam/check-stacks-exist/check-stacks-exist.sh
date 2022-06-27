@@ -1,7 +1,7 @@
 set -eu
 
 env_var=${SET_ENV_VAR}
-read -ra stacks <<< "${STACK_NAMES}"
+read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 
 print_summary=false
 [[ ${VERBOSE} == true ]] && print_summary=true

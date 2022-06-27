@@ -19,6 +19,18 @@ jobs:
           echo "DATE_OVERRIDE=2022-05-20T12:00" >> "$GITHUB_ENV"
 
 
+      - name: Match no stacks
+        id: match-no-stacks
+        uses: ./sam/get-stale-stacks
+        with:
+          threshold-days: 50
+          description: test
+
+      - name: Check no stacks matched
+        run: |
+          [[ -z "${{ steps.match-no-stacks.outputs.stack-names }}" ]]
+
+
       - name: Include stacks older than specified age
         id: include-stale-stacks
         uses: ./sam/get-stale-stacks
@@ -35,6 +47,7 @@ jobs:
         uses: ./sam/get-stale-stacks
         with:
           stack-name-filter: test
+          description: test
 
       - name: Check stacks filtered by name
         run: |
@@ -80,6 +93,7 @@ jobs:
         uses: ./sam/get-stale-stacks
         with:
           env-var-name: ACCUMULATED_STACKS
+          description: test
 
       - name: Check accumulated stacks environment variable set
         run: |

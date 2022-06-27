@@ -13,7 +13,7 @@ inputs:
     description: 'Specify the dialect for shellcheck to use (sh, bash, dash, ksh)'
     required: false
   file-extensions:
-    description: 'Run checks on files with the specified extensions (newline-delimited string)'
+    description: 'Run checks on files with the specified extensions (space or newline-delimited string)'
     required: false
     default: .sh
 runs:
@@ -48,14 +48,14 @@ runs:
       env:
         TYPES: ${{ inputs.file-extensions }}
       run: |
-        types="$(echo -n "$TYPES")"
+        types="$(echo -n "$TYPES" | tr ' ' '\n')"
         
         if $MERGING; then
           mapfile -t scripts < <(git diff --name-only --diff-filter=d HEAD^...HEAD | grep -F "$types")
         else
-          shopt -s globstar dotglob
+          shopt -s globstar dotglob extglob
           mapfile -t types <<< "$types"
-          scripts=$(eval echo "**/*{${types[*]}}")
+          scripts=$(IFS="|"; eval echo "**/*@(${types[*]})")
         fi
         
         echo "SCRIPTS=${scripts[*]}" >> "$GITHUB_ENV"
@@ -84,7 +84,7 @@ runs:
     - name: Write shellcheck results
       id: report-shellcheck
       if: ${{ failure() && steps.run-shellcheck.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@5337497aaa56b4a52d2052aab59ef294af7f7a51
+      uses: alphagov/di-github-actions/report-step-result@a142f7f22cc41ce8466e32deb68ff4994bee3e4c
       with:
         file-path: ${{ runner.temp }}/shellcheck.output
         output-file-path: ${{ runner.temp }}/checks.report
@@ -94,7 +94,7 @@ runs:
     - name: Write shfmt results
       id: report-shfmt
       if: ${{ failure() && steps.run-shfmt.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@5337497aaa56b4a52d2052aab59ef294af7f7a51
+      uses: alphagov/di-github-actions/report-step-result@a142f7f22cc41ce8466e32deb68ff4994bee3e4c
       with:
         file-path: ${{ runner.temp }}/shfmt.output
         output-file-path: ${{ runner.temp }}/checks.report
@@ -103,7 +103,7 @@ runs:
 
     - name: Report results
       if: ${{ failure() && (steps.report-shellcheck.outcome == 'success' || steps.report-shfmt.outcome == 'success') }}
-      uses: alphagov/di-github-actions/report-step-result@5337497aaa56b4a52d2052aab59ef294af7f7a51
+      uses: alphagov/di-github-actions/report-step-result@a142f7f22cc41ce8466e32deb68ff4994bee3e4c
       with:
         file-path: ${{ runner.temp }}/checks.report
         code-block: false

@@ -1,6 +1,6 @@
 set -eu
 
-read -ra stacks <<< "${STACK_NAMES}"
+read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 region=${AWS_REGION}
 
 delete_only_failed=false

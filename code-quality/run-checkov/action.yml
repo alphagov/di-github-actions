@@ -43,10 +43,13 @@ runs:
       run: |
         if $MERGING; then
           files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files")
-          mapfile -t files <<< "$files"
-          read -ra files <<< "${files[@]/#/-f }"
-          checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
+          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files" || true)
+        
+          if [[ $files ]]; then
+            mapfile -t files <<< "$files"
+            read -ra files <<< "${files[@]/#/-f }"
+            checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
+          fi
         else
           if [[ $DIR ]]; then
             checkov --quiet -d "$DIR" | tee "$OUTPUT_FILE"
@@ -58,6 +61,6 @@ runs:
 
     - name: Report Checkov result
       if: ${{ failure() && steps.run-checkov.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@5337497aaa56b4a52d2052aab59ef294af7f7a51
+      uses: alphagov/di-github-actions/report-step-result@a142f7f22cc41ce8466e32deb68ff4994bee3e4c
       with:
         file-path: ${{ runner.temp }}/checkov.output

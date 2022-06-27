@@ -2,7 +2,7 @@ name: 'Check SAM stack exists'
 description: 'Checks whether the specified AWS SAM stack exists using the AWS credentials configured in the job'
 inputs:
   stack-names:
-    description: 'Names of the stacks to check (space-delimited string)'
+    description: 'Names of the stacks to check (space or newline-delimited string)'
     required: true
   set-env-var:
     description: "Name of the environment variable to set in the job with the value of the existing stacks"

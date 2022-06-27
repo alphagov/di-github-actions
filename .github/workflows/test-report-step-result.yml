@@ -18,6 +18,28 @@ jobs:
         run: echo "Stub result" >> "$REPORT_FILE"
 
 
+      - name: Do not fail on missing report
+        uses: ./report-step-result
+        with:
+          file-path: missing.report
+          fail-if-report-missing: false
+
+
+      - name: Fail on missing report
+        id: fail-on-missing-report
+        continue-on-error: true
+        uses: ./report-step-result
+        with:
+          file-path: missing.report
+          fail-if-report-missing: true
+
+      - name: Check error returned on missing report
+        if: ${{ steps.fail-on-missing-report.outcome != 'failure' }}
+        run: |
+          echo "Error status not returned on missing report"
+          exit 1
+
+
       - name: Report result
         uses: ./report-step-result
         with:
