@@ -5,17 +5,12 @@ name_filter=${STACK_NAME_FILTER}
 env_var=${ENV_VAR_NAME}
 description=${STACKS_DESCRIPTION}
 
-IFS='|' read -ra tags <<< "${STACK_TAG_FILTERS}"
+declare -A tag_filters
+eval "tag_filters=(${STACK_TAG_FILTERS})"
 
-tag_names=()
-if [[ ${#tags[@]} -gt 0 ]]; then
-  declare -A tag_filters
-  for tag_filter in "${tags[@]}"; do
-    IFS="=" read -r name value < <(xargs <<< "$tag_filter")
-    tag_filters[$name]=$value && tag_names+=("$name")
-    echo "Filtering by tag $name = $value"
-  done
-fi
+for name in "${!tag_filters[@]}"; do
+  echo "Filtering by tag $name = ${tag_filters[$name]}"
+done
 
 if [[ $env_var ]]; then
   imported_stacks=()
@@ -34,6 +29,7 @@ stack_names=$(jq -r '.StackName' <<< "$stacks")
 mapfile -t stack_names <<< "$stack_names"
 
 stale_stacks=()
+tag_names=("${!tag_filters[@]}")
 for stack in "${stack_names[@]}"; do
   stack_info=$(jq --arg name "$stack" 'select(.StackName == $name)' <<< "$stacks")
   stack_tags=$(jq '.Tags[]' <<< "$stack_info")
