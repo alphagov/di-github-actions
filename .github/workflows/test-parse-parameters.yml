@@ -1,0 +1,111 @@
+name: Parse parameters test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+
+      - name: Parse single-line parameters
+        id: parse-single-line-params
+        uses: ./parse-parameters
+        with:
+          parameters: sky=blue | test="foo bar"
+          associative-array: true
+
+      - name: Check single-line parameters parsed
+        run: |
+          [[ "${{ steps.parse-single-line-params.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse single-line parameters without quotes
+        id: parse-single-line-params-no-quotes
+        uses: ./parse-parameters
+        with:
+          parameters: sky=blue | test=foo bar
+          associative-array: true
+
+      - name: Check single-line parameters without quotes parsed
+        run: |
+          [[ "${{ steps.parse-single-line-params-no-quotes.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse compact single-line parameters
+        id: parse-single-line-params-compact
+        uses: ./parse-parameters
+        with:
+          parameters: sky=blue|test="foo bar"
+          associative-array: true
+
+      - name: Check compact single-line parameters parsed
+        run: |
+          [[ "${{ steps.parse-single-line-params-compact.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+      - name: Parse single-line parameters with spaces
+        id: parse-single-line-params-spaces
+        uses: ./parse-parameters
+        with:
+          parameters: sky = blue | test = foo bar
+          associative-array: true
+
+      - name: Check single-line parameters with spaces parsed
+        run: |
+          [[ "${{ steps.parse-single-line-params-spaces.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse single-line parameters into key-value pairs
+        id: parse-single-line-params-kvps
+        uses: ./parse-parameters
+        with:
+          parameters: sky=blue | test="foo bar"
+          associative-array: false
+
+      - name: Check single-line parameters parsed into key-value pairs
+        run: |
+          [[ "${{ steps.parse-single-line-params-kvps.outputs.parsed-parameters }}" == "sky='blue' test='foo bar'" ]]
+
+
+      - name: Parse multi-line parameters
+        id: parse-multi-line-params
+        uses: ./parse-parameters
+        with:
+          associative-array: true
+          parameters: |
+            sky=blue
+            test="foo bar"
+
+      - name: Check multi-line parameters parsed
+        run: |
+          [[ "${{ steps.parse-multi-line-params.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse multi-line parameters without quotes
+        id: parse-multi-line-params-no-quotes
+        uses: ./parse-parameters
+        with:
+          associative-array: true
+          parameters: |
+            sky=blue
+            test=foo bar
+
+      - name: Check multi-line parameters without quotes parsed
+        run: |
+          [[ "${{ steps.parse-multi-line-params-no-quotes.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+      - name: Parse multi-line parameters with spaces
+        id: parse-multi-line-params-spaces
+        uses: ./parse-parameters
+        with:
+          associative-array: true
+          parameters: |
+            sky = blue
+            test = foo bar
+
+      - name: Check multi-line parameters parsed
+        run: |
+          [[ "${{ steps.parse-multi-line-params-spaces.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
