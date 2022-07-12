@@ -1,0 +1,120 @@
+name: 'Deploy to PaaS'
+description: 'Deploy an application to PaaS using the Cloud Foundry client'
+inputs:
+  cf-org-name:
+    description: 'The target organisation in PaaS'
+    required: true
+  cf-space-name:
+    description: 'The target CF space in PaaS'
+    required: true
+  cf-username:
+    description: 'The CF username of the PaaS account used to deploy the app'
+    required: true
+  cf-password:
+    description: 'The PaaS account password'
+    required: true
+  app-name:
+    description: 'The name of the deployed app. Overrides the name in the manifest and the one derived from branch name'
+    required: false
+  app-name-prefix:
+    description: 'Prefix to use when deriving app name from branch name'
+    required: false
+  variables:
+    description: 'key=value pairs for variable substitution in the manifest, separated by newlines or "|"'
+    required: false
+  url:
+    description: 'The PaaS deployment URL. Overrides the default <app-name>.london.cloudapps.digital URL'
+    required: false
+  rolling-deployment:
+    description: 'Whether to use the rolling strategy when deploying'
+    required: false
+    default: 'false'
+  instances:
+    description: 'Number of app instances to deploy'
+    required: false
+    default: '1'
+outputs:
+  deployment-url:
+    description: 'The PaaS deployment URL'
+    value: ${{ steps.set-deployment-url.outputs.deployment-url }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Cloud Foundry client
+      shell: bash
+      env:
+        CF_CLI_DOWNLOAD_URL: https://packages.cloudfoundry.org/stable?release=linux64-binary&source=github&version=v7
+      run: |
+        curl -sL "${CF_CLI_DOWNLOAD_URL}" | sudo tar -zx -C /usr/local/bin
+        cf version
+
+    - name: Parse variables
+      id: parse-variables
+      uses: alphagov/di-github-actions/parse-parameters@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        parameters: ${{ inputs.variables }}
+        associative-array: true
+
+    - name: Create variables file
+      shell: bash
+      env:
+        VARS_FILE: ${{ runner.temp }}/variables.yaml
+        VARS: ${{ steps.parse-variables.outputs.parsed-parameters }}
+      run: |
+        declare -A variables
+        eval "variables=(${VARS})"        
+        for variable in "${!variables[@]}"; do
+          echo "$variable: ${variables[$variable]}" >> "$VARS_FILE"
+        done
+
+    - name: Set deployment hostname
+      id: set-deployment-hostname
+      if: ${{ inputs.app-name == null && inputs.url == null }}
+      uses: alphagov/di-github-actions/beautify-branch-name@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        downcase: true
+        length-limit: 63
+        underscores-to-hyphens: true
+        prefix: ${{ inputs.app-name-prefix }}
+        usage: App name
+
+    - name: Set app name
+      shell: bash
+      env:
+        APP_NAME: ${{ steps.set-deployment-hostname.outputs.pretty-branch-name || inputs.app-name }}
+      run: echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+
+    - name: Set deployment URL
+      id: set-deployment-url
+      shell: bash
+      env:
+        URL: ${{ inputs.url }}
+        HOSTNAME: ${{ env.APP_NAME }}
+      run: echo "::set-output name=deployment-url::${URL:-https://${HOSTNAME}.london.cloudapps.digital}"
+
+    - name: Auth to PaaS
+      shell: bash
+      env:
+        CF_API_URL: https://api.london.cloud.service.gov.uk
+        CF_ORG_NAME: ${{ inputs.cf-org-name }}
+        CF_SPACE_NAME: ${{ inputs.cf-space-name }}
+        CF_USERNAME: ${{ inputs.cf-username }}
+        CF_PASSWORD: ${{ inputs.cf-password }}
+      run: |
+        echo "::group::PaaS login"
+        cf api ${CF_API_URL}
+        cf auth
+        cf target -o ${CF_ORG_NAME} -s ${CF_SPACE_NAME}
+        echo "::endgroup::"
+
+    - name: Push to PaaS
+      shell: bash
+      env:
+        ROLLING_DEPLOYMENT: ${{ inputs.rolling-deployment == 'true' }}
+        VARS_FILE: ${{ runner.temp }}/variables.yaml
+        INSTANCES: ${{ inputs.instances }}
+      run: |
+        cf push "${APP_NAME:-}" \
+          $($ROLLING_DEPLOYMENT && echo "--strategy rolling") \
+          --instances "$INSTANCES" \
+          --vars-file "$VARS_FILE"
