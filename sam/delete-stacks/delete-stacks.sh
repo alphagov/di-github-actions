@@ -1,10 +1,9 @@
 set -eu
 
-read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 region=${AWS_REGION}
+delete_only_failed=${ONLY_FAILED}
 
-delete_only_failed=false
-[[ ${ONLY_FAILED} == true ]] && delete_only_failed=true
+read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 
 deleted_stacks=()
 failed_stacks=()

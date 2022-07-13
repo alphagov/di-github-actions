@@ -29,5 +29,5 @@ runs:
       shell: bash
       env:
         STACK_NAMES: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
-        ONLY_FAILED: ${{ inputs.only-if-failed }}
+        ONLY_FAILED: ${{ inputs.only-if-failed == 'true' }}
         AWS_REGION: ${{ inputs.aws-region }}

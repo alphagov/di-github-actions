@@ -29,8 +29,8 @@ runs:
       shell: bash
       env:
         FILE_PATH: ${{ inputs.file-path }}
-        TITLE: ${{ inputs.title }}
-        CODE_BLOCK: ${{ inputs.code-block }}
-        LANGUAGE: ${{ inputs.language }}
         OUT_FILE: ${{ inputs.output-file-path }}
-        FAIL_IF_FILE_MISSING: ${{ inputs.fail-if-report-missing }}
+        TITLE: ${{ inputs.title }}
+        LANGUAGE: ${{ inputs.language }}
+        CODE_BLOCK: ${{ inputs.code-block == 'true' }}
+        FAIL_IF_FILE_MISSING: ${{ inputs.fail-if-report-missing == 'true' }}
