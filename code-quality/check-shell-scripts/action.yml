@@ -62,7 +62,7 @@ runs:
 
     - name: Run shellcheck
       id: run-shellcheck
-      if: ${{ env.SCRIPTS && inputs.run-shellcheck }}
+      if: ${{ env.SCRIPTS && inputs.run-shellcheck == 'true' }}
       shell: bash
       env:
         DIALECT: ${{ inputs.shell }}
@@ -73,7 +73,7 @@ runs:
 
     - name: Run shfmt
       id: run-shfmt
-      if: ${{ ((success() && env.SCRIPTS) || (failure() && steps.run-shellcheck.outcome == 'failure')) && inputs.run-shfmt }}
+      if: ${{ ((success() && env.SCRIPTS) || (failure() && steps.run-shellcheck.outcome == 'failure')) && inputs.run-shfmt == 'true' }}
       shell: bash
       env:
         OUTPUT_FILE: ${{ runner.temp }}/shfmt.output

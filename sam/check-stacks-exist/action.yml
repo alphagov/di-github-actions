@@ -25,4 +25,4 @@ runs:
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}
-        VERBOSE: ${{ inputs.verbose }}
+        VERBOSE: ${{ inputs.verbose == 'true' }}
