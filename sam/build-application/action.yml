@@ -14,6 +14,10 @@ inputs:
   aws-session-name:
     description: 'Override the default AWS session name'
     required: false
+  enable-beta-features:
+    description: 'Use SAM beta features when building an application'
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -34,4 +38,8 @@ runs:
       shell: bash
       env:
         TEMPLATE_FILE: ${{ inputs.sam-template-file }}
-      run: sam build --cached --parallel ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
+        BETA_FEATURES: ${{ inputs.enable-beta-features == 'true' }}
+      run: |
+        sam build --cached --parallel \
+          $($BETA_FEATURES && echo "--beta-features") \
+          ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
