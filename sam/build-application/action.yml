@@ -11,11 +11,13 @@ inputs:
     description: 'AWS region to use'
     required: false
     default: eu-west-2
-  enable-beta-features:
-    type: boolean
+  aws-session-name:
+    description: 'Override the default AWS session name'
     required: false
-    description: 'Optionally enable SAM beta features'
-    default: false
+  enable-beta-features:
+    description: 'Use SAM beta features when building an application'
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -23,6 +25,7 @@ runs:
       uses: aws-actions/configure-aws-credentials@v1
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
 
     - name: Validate SAM template
@@ -32,15 +35,11 @@ runs:
       run: sam validate ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
 
     - name: Build SAM Application
-      if: ${{ !inputs.enable-beta-features }}
       shell: bash
       env:
         TEMPLATE_FILE: ${{ inputs.sam-template-file }}
-      run: sam build --cached --parallel ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
-
-    - name: Build SAM Application (with Beta Features)
-      if: ${{ inputs.enable-beta-features }}
-      shell: bash
-      env:
-        TEMPLATE_FILE: ${{ inputs.sam-template-file }}
-      run: sam build --beta-features --cached --parallel ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
+        BETA_FEATURES: ${{ inputs.enable-beta-features == 'true' }}
+      run: |
+        sam build --cached --parallel \
+          $($BETA_FEATURES && echo "--beta-features") \
+          ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}

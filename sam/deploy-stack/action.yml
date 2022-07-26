@@ -1,0 +1,96 @@
+name: 'Deploy SAM stack'
+description: 'Deploy an AWS SAM stack'
+inputs:
+  stack-name:
+    description: 'Name of the stack to deploy. Derived from branch name if not provided'
+    required: false
+  stack-name-prefix:
+    description: 'Stack name prefix to use when deriving the name from the branch name'
+    required: false
+  s3-prefix:
+    description: 'A prefix to use when uploading deployment artifacts'
+    required: false
+  sam-deployment-bucket:
+    description: 'S3 bucket used to store the deployment artifacts'
+    required: true
+  delete-failed-stack:
+    description: 'Attempt to delete the stack before deploying it if it exists and is in a failed state'
+    required: false
+    default: 'false'
+  disable-rollback:
+    description: 'Pass through the --disable-rollback param to SAM CLI'
+    required: false
+    default: 'false'
+  tags:
+    description: 'A list of tags to associate with the stack'
+    required: false
+  parameters:
+    description: 'Parameter overrides for the SAM template'
+    required: false
+outputs:
+  stack-name:
+    description: 'The deployed stack name'
+    value: ${{ steps.deploy-stack.outputs.stack-name }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Parse parameters
+      id: parse-parameters
+      if: ${{ inputs.parameters != null }}
+      uses: alphagov/di-github-actions/parse-parameters@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        parameters: ${{ inputs.parameters }}
+
+    - name: Parse tags
+      id: parse-tags
+      if: ${{ inputs.tags != null }}
+      uses: alphagov/di-github-actions/parse-parameters@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        parameters: ${{ inputs.tags }}
+
+    - name: Get stack name from branch
+      id: set-stack-name
+      if: ${{ inputs.stack-name == null }}
+      uses: alphagov/di-github-actions/beautify-branch-name@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        prefix: ${{ inputs.stack-name-prefix }}
+        length-limit: 150
+        usage: Stack name
+
+    - name: Set stack name
+      shell: bash
+      env:
+        STACK_NAME: ${{ steps.set-stack-name.outputs.pretty-branch-name || inputs.stack-name }}
+      run: echo "STACK_NAME=$STACK_NAME" >> "$GITHUB_ENV"
+
+    - name: Delete failed stack
+      if: ${{ inputs.delete-failed-stack == 'true' }}
+      uses: alphagov/di-github-actions/sam/delete-stacks@c5ad1d33aa2b68287ec09f454f5a5c6eaf046ae0
+      with:
+        only-if-failed: true
+        stack-names: ${{ env.STACK_NAME }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy SAM stack
+      shell: bash
+      env:
+        S3_BUCKET: ${{ inputs.sam-deployment-bucket }}
+        S3_PREFIX: ${{ inputs.s3-prefix }}
+        DISABLE_ROLLBACK: ${{ inputs.disable-rollback == 'true' }}
+        PARAMETERS: ${{ steps.parse-parameters.outputs.parsed-parameters }}
+        TAGS: ${{ steps.parse-tags.outputs.parsed-parameters }}
+      run: |
+        sam deploy \
+          --stack-name "$STACK_NAME" \
+          --s3-bucket "$S3_BUCKET" \
+          --s3-prefix "${S3_PREFIX:+$S3_PREFIX/}$STACK_NAME" \
+          $($DISABLE_ROLLBACK && echo "--disable-rollback") \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset \
+          --capabilities CAPABILITY_NAMED_IAM \
+          ${TAGS:+--tags "$TAGS"} \
+          ${PARAMETERS:+--parameter-overrides "$PARAMETERS"}
+
+    - name: Report deployment
+      shell: bash
+      run: echo "Deployed stack \`$STACK_NAME\`" >> "$GITHUB_STEP_SUMMARY"
