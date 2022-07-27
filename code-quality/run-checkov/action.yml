@@ -16,7 +16,7 @@ runs:
         merging=false
         [[ $EVENT == pull_request ]] && merging=true && fetch_depth=2
         echo "::set-output name=fetch-depth::${fetch_depth:-}"
-        echo "MERGING=$merging" >> "$GITHUB_ENV"
+        echo "::set-output name=merging::$merging"
 
     - name: Pull repository
       uses: actions/checkout@v3
@@ -34,33 +34,44 @@ runs:
       run: echo "::group::pip output" && pip install checkov && echo "::endgroup::"
       shell: bash
 
-    - name: Run Checkov
-      id: run-checkov
+    - name: Run Checkov on a pull request
+      id: run-checkov-pr
+      if: ${{ steps.check-merge-commit.outputs.merging == 'true' }}
       shell: bash
       env:
         DIR: ${{ inputs.path }}
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
       run: |
-        if $MERGING; then
-          files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-          [[ $DIR ]] && files=$(grep "$DIR" <<< "$files" || true)
+        files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
+        [[ $DIR ]] && files=$(grep "$DIR" <<< "$files" || true)
         
-          if [[ $files ]]; then
-            mapfile -t files <<< "$files"
-            read -ra files <<< "${files[@]/#/-f }"
-            checkov --quiet "${files[@]}" | tee "$OUTPUT_FILE"
-          fi
-        else
-          if [[ $DIR ]]; then
-            checkov --quiet -d "$DIR" | tee "$OUTPUT_FILE"
-          else
-            checkov --quiet -d . | tee "$OUTPUT_FILE"
-            [[ -d .github ]] && checkov --quiet -d .github | tee -a "$OUTPUT_FILE"
-          fi
+        if [[ $files ]]; then
+          mapfile -t files <<< "$files"
+          read -ra files <<< "${files[@]/#/-f }"
+          checkov --quiet --skip-framework secrets "${files[@]}" | tee "$OUTPUT_FILE"
         fi
 
+    - name: Run Checkov on a directory
+      id: run-checkov-dir
+      if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path != null }}
+      shell: bash
+      env:
+        DIR: ${{ inputs.path }}
+        OUTPUT_FILE: ${{ runner.temp }}/checkov.output
+      run: checkov --quiet -d "$DIR" | tee "$OUTPUT_FILE"
+
+    - name: Run Checkov on the repo
+      id: run-checkov-repo
+      if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path == null }}
+      shell: bash
+      env:
+        OUTPUT_FILE: ${{ runner.temp }}/checkov.output
+      run: |
+        checkov --quiet -d . | tee "$OUTPUT_FILE"
+        [[ -d .github ]] && checkov --quiet -d .github | tee -a "$OUTPUT_FILE"
+
     - name: Report Checkov result
-      if: ${{ failure() && steps.run-checkov.outcome == 'failure' }}
+      if: ${{ failure() }}
       uses: alphagov/di-github-actions/report-step-result@f5dbfa65c3d3e100b12413dd6816176783ce8308
       with:
         file-path: ${{ runner.temp }}/checkov.output
