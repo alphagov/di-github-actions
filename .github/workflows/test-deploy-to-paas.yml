@@ -22,7 +22,6 @@ jobs:
           cf-org-name: cf-org
           cf-space-name: cf-space
           cf-username: cf-username
-          # checkov:skip=CKV_SECRET_6: "Base64 High Entropy String"
           cf-password: cf-password
 
       - name: Check provided name and URL used
