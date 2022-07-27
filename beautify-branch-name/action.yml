@@ -38,8 +38,8 @@ runs:
       shell: bash
       env:
         BRANCH_NAME: ${{ inputs.branch-name }}
-        DOWNCASE_NAME: ${{ inputs.downcase }}
-        UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens }}
+        DOWNCASE_NAME: ${{ inputs.downcase == 'true' }}
+        UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens == 'true' }}
         TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
         PREFIX: ${{ inputs.prefix }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}

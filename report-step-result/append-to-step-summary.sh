@@ -1,15 +1,11 @@
 set -eu
 
 file=${FILE_PATH}
+output_file=${OUT_FILE:-$GITHUB_STEP_SUMMARY}
 message=${TITLE}
 language=${LANGUAGE}
-output_file=${OUT_FILE:-$GITHUB_STEP_SUMMARY}
-
-use_code_block=false
-[[ ${CODE_BLOCK} == true ]] && use_code_block=true
-
-fail_if_missing=false
-[[ ${FAIL_IF_FILE_MISSING} == true ]] && fail_if_missing=true
+use_code_block=${CODE_BLOCK}
+fail_if_missing=${FAIL_IF_FILE_MISSING}
 
 if ! [[ -f $file ]]; then
   echo "::warning title=Report missing::File $file has not been found"

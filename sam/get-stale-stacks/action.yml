@@ -2,28 +2,35 @@ name: 'Get stale stacks'
 description: 'Retrieve names of AWS SAM stacks older than a set threshold, and filtered by name and tags'
 inputs:
   threshold-days:
-    description: "Get stacks older than the specified number of days"
+    description: 'Get stacks older than the specified number of days'
     required: false
-    default: "30"
+    default: '30'
   stack-name-filter:
-    description: "Only retrieve stacks whose names contain the specified string"
+    description: 'Only retrieve stacks whose names contain the specified string'
     required: false
   stack-tag-filters:
-    description: "Filter stacks by tags - encoded as name=value pairs, separated by ' | ' (e.g. 'tag1=val1 | tag2=val 2')"
+    description: 'Filter stacks by tags, encoded as name=value pairs separated by newlines or "|"'
     required: false
   env-var-name:
-    description: "Accumulate stack names in the environment variable with the specified name, persisted in the job"
+    description: 'Accumulate stack names in the environment variable with the specified name, persisted in the job'
     required: false
   description:
     description: 'Description of the stale stacks - for logging purposes only'
     required: false
 outputs:
   stack-names:
-    description: "Filtered stack names"
+    description: 'Filtered stack names'
     value: ${{ steps.filter-stacks.outputs.stack-names }}
 runs:
   using: 'composite'
   steps:
+    - name: Parse tag filters
+      id: parse-tag-filters
+      uses: alphagov/di-github-actions/parse-parameters@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      with:
+        parameters: ${{ inputs.stack-tag-filters }}
+        associative-array: true
+
     - name: Filter stacks
       id: filter-stacks
       run: ${{ github.action_path }}/filter-stacks.sh
@@ -31,6 +38,6 @@ runs:
       env:
         THRESHOLD_DAYS: ${{ inputs.threshold-days }}
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
-        STACK_TAG_FILTERS: ${{ inputs.stack-tag-filters }}
+        STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.parsed-parameters }}
         ENV_VAR_NAME: ${{ inputs.env-var-name }}
         STACKS_DESCRIPTION: ${{ inputs.description }}

@@ -1,10 +1,9 @@
 set -eu
 
 env_var=${SET_ENV_VAR}
-read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
+print_summary=${VERBOSE}
 
-print_summary=false
-[[ ${VERBOSE} == true ]] && print_summary=true
+read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 
 real_stacks=()
 fake_stacks=()

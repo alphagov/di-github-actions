@@ -5,7 +5,7 @@ inputs:
     description: 'Name of the SAM template file to use'
     required: false
   aws-role-arn:
-    description: 'Aws role ARN to assume when validating the template'
+    description: 'AWS role ARN to assume when validating the template'
     required: true
   aws-region:
     description: 'AWS region to use'

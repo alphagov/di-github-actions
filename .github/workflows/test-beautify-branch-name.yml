@@ -23,6 +23,18 @@ jobs:
           [[ ${{ steps.downcase.outputs.pretty-branch-name }} == branch-name-with-upper-case-letters ]]
 
 
+      - name: Do not downcase branch name
+        id: downcase-not
+        uses: ./beautify-branch-name
+        with:
+          branch-name: BRANCH-NAME-with-UPPer-CASe-letterS
+          downcase: false
+
+      - name: Check branch name not downcased
+        run: |
+          [[ ${{ steps.downcase-not.outputs.pretty-branch-name }} == BRANCH-NAME-with-UPPer-CASe-letterS ]]
+
+
       - name: Replace underscores
         id: replace-underscores
         uses: ./beautify-branch-name
@@ -33,6 +45,18 @@ jobs:
       - name: Check underscores replaced
         run: |
           [[ ${{ steps.replace-underscores.outputs.pretty-branch-name }} == branch-name-with-underscores ]]
+          
+
+      - name: Do not replace underscores
+        id: replace-underscores-not
+        uses: ./beautify-branch-name
+        with:
+          branch-name: branch_name_with-underscores
+          underscores-to-hyphens: false
+
+      - name: Check underscores not replaced
+        run: |
+          [[ ${{ steps.replace-underscores-not.outputs.pretty-branch-name }} == branch_name_with-underscores ]]
 
 
       - name: Truncate length
