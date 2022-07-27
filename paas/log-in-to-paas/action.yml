@@ -1,0 +1,40 @@
+name: 'Login to PaaS'
+description: 'Set up the Cloud Foundry CLI and authenticate to PaaS'
+inputs:
+  cf-org-name:
+    description: 'The target organisation in PaaS'
+    required: true
+  cf-space-name:
+    description: 'The target CF space in PaaS'
+    required: true
+  cf-username:
+    description: 'The CF username of the PaaS account used to deploy the app'
+    required: true
+  cf-password:
+    description: 'The PaaS account password'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Cloud Foundry client
+      shell: bash
+      env:
+        CF_CLI_DOWNLOAD_URL: https://packages.cloudfoundry.org/stable?release=linux64-binary&source=github&version=v7
+      run: |
+        curl -sL "${CF_CLI_DOWNLOAD_URL}" | sudo tar -zx -C /usr/local/bin
+        cf version
+
+    - name: Log in to PaaS
+      shell: bash
+      env:
+        CF_API_URL: https://api.london.cloud.service.gov.uk
+        CF_ORG_NAME: ${{ inputs.cf-org-name }}
+        CF_SPACE_NAME: ${{ inputs.cf-space-name }}
+        CF_USERNAME: ${{ inputs.cf-username }}
+        CF_PASSWORD: ${{ inputs.cf-password }}
+      run: |
+        echo "::group::PaaS login"
+        cf api ${CF_API_URL}
+        cf auth
+        cf target -o ${CF_ORG_NAME} -s ${CF_SPACE_NAME}
+        echo "::endgroup::"
