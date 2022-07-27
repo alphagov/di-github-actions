@@ -1,0 +1,131 @@
+name: Deploy to PaaS test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Set up stub CF CLI
+        run: echo "./.github/stubs/cf" >> "$GITHUB_PATH"
+
+      - name: Use provided name and URL
+        id: use-name-url
+        uses: ./paas/deploy-app
+        with:
+          url: test-app-url.com
+          app-name: test-app
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          # checkov:skip=CKV_SECRET_6: "Base64 High Entropy String"
+          cf-password: cf-password
+
+      - name: Check provided name and URL used
+        run: |
+          [[ $PUSHED_APP_NAME == test-app ]]
+          [[ ${{ steps.use-name-url.outputs.deployment-url }} == test-app-url.com ]]
+
+
+      - name: Use provided app name
+        id: use-name
+        uses: ./paas/deploy-app
+        with:
+          app-name: test-app-name
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          cf-password: cf-password
+
+      - name: Check provided name used
+        run: |
+          [[ $PUSHED_APP_NAME == test-app-name ]]
+          [[ ${{ steps.use-name.outputs.deployment-url }} == https://test-app-name.london.cloudapps.digital ]]
+
+
+      - name: Use provided URL
+        id: use-url
+        uses: ./paas/deploy-app
+        with:
+          url: test-app-name-url.com
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          cf-password: cf-password
+
+      - name: Check provided URL
+        run: |
+          [[ -z $PUSHED_APP_NAME ]]
+          [[ ${{ steps.use-url.outputs.deployment-url }} == test-app-name-url.com ]]
+
+
+      - name: Generate app name and URL from branch name
+        id: generate-app-name
+        uses: ./paas/deploy-app
+        with:
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          cf-password: cf-password
+
+      - name: Get app name from branch
+        id: get-branch-app-name
+        uses: ./beautify-branch-name
+        with:
+          downcase: true
+          length-limit: 63
+          underscores-to-hyphens: true
+
+      - name: Check app name and URL generated from branch name
+        run: |
+          [[ $PUSHED_APP_NAME == ${{ steps.get-branch-app-name.outputs.pretty-branch-name }} ]]
+          [[ ${{ steps.generate-app-name.outputs.deployment-url }} == https://${PUSHED_APP_NAME}.london.cloudapps.digital ]]
+
+
+      - name: Use provided prefix for generated app name
+        id: generate-app-name-prefix
+        uses: ./paas/deploy-app
+        with:
+          app-name-prefix: app-name-prefix
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          cf-password: cf-password
+
+      - name: Get app name from branch with prefix
+        id: get-branch-app-name-prefix
+        uses: ./beautify-branch-name
+        with:
+          downcase: true
+          length-limit: 63
+          prefix: app-name-prefix
+          underscores-to-hyphens: true
+
+      - name: Check app name and URL generated from branch name with provided prefix
+        run: |
+          [[ $PUSHED_APP_NAME == ${{ steps.get-branch-app-name-prefix.outputs.pretty-branch-name }} ]]
+          [[ ${{ steps.generate-app-name-prefix.outputs.deployment-url }} == https://${PUSHED_APP_NAME}.london.cloudapps.digital ]]
+
+
+      - name: Create correct variable substitution file
+        uses: ./paas/deploy-app
+        with:
+          cf-org-name: cf-org
+          cf-space-name: cf-space
+          cf-username: cf-username
+          cf-password: cf-password
+          variables: app=test | deployment=continuous | memory=unlimited
+
+      - name: Check correct variable substitution file created
+        run: |
+          cat << 'EOF' > expected_file
+          memory: unlimited
+          deployment: continuous
+          app: test
+          EOF
+          
+          [[ $(cat "$VARS_FILE") == $(cat expected_file) ]]
