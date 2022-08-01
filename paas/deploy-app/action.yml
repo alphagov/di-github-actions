@@ -40,17 +40,17 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install Cloud Foundry client
-      shell: bash
-      env:
-        CF_CLI_DOWNLOAD_URL: https://packages.cloudfoundry.org/stable?release=linux64-binary&source=github&version=v7
-      run: |
-        curl -sL "${CF_CLI_DOWNLOAD_URL}" | sudo tar -zx -C /usr/local/bin
-        cf version
+    - name: Auth to PaaS
+      uses: alphagov/di-github-actions/paas/log-in-to-paas@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
+      with:
+        cf-org-name: ${{ inputs.cf-org-name }}
+        cf-space-name: ${{ inputs.cf-space-name }}
+        cf-username: ${{ inputs.cf-username }}
+        cf-password: ${{ inputs.cf-password }}
 
     - name: Parse variables
       id: parse-variables
-      uses: alphagov/di-github-actions/parse-parameters@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/parse-parameters@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         parameters: ${{ inputs.variables }}
         associative-array: true
@@ -70,7 +70,7 @@ runs:
     - name: Set deployment hostname
       id: set-deployment-hostname
       if: ${{ inputs.app-name == null && inputs.url == null }}
-      uses: alphagov/di-github-actions/beautify-branch-name@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/beautify-branch-name@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         downcase: true
         length-limit: 63
@@ -92,21 +92,6 @@ runs:
         URL: ${{ inputs.url }}
         HOSTNAME: ${{ steps.set-app-name.outputs.app-name }}
       run: echo "::set-output name=deployment-url::${URL:-https://${HOSTNAME}.london.cloudapps.digital}"
-
-    - name: Auth to PaaS
-      shell: bash
-      env:
-        CF_API_URL: https://api.london.cloud.service.gov.uk
-        CF_ORG_NAME: ${{ inputs.cf-org-name }}
-        CF_SPACE_NAME: ${{ inputs.cf-space-name }}
-        CF_USERNAME: ${{ inputs.cf-username }}
-        CF_PASSWORD: ${{ inputs.cf-password }}
-      run: |
-        echo "::group::PaaS login"
-        cf api ${CF_API_URL}
-        cf auth
-        cf target -o ${CF_ORG_NAME} -s ${CF_SPACE_NAME}
-        echo "::endgroup::"
 
     - name: Push to PaaS
       shell: bash

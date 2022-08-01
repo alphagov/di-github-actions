@@ -37,21 +37,21 @@ runs:
     - name: Parse parameters
       id: parse-parameters
       if: ${{ inputs.parameters != null }}
-      uses: alphagov/di-github-actions/parse-parameters@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/parse-parameters@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         parameters: ${{ inputs.parameters }}
 
     - name: Parse tags
       id: parse-tags
       if: ${{ inputs.tags != null }}
-      uses: alphagov/di-github-actions/parse-parameters@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/parse-parameters@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         parameters: ${{ inputs.tags }}
 
     - name: Get stack name from branch
       id: set-stack-name
       if: ${{ inputs.stack-name == null }}
-      uses: alphagov/di-github-actions/beautify-branch-name@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/beautify-branch-name@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         prefix: ${{ inputs.stack-name-prefix }}
         length-limit: 150
@@ -65,7 +65,7 @@ runs:
 
     - name: Delete failed stack
       if: ${{ inputs.delete-failed-stack == 'true' }}
-      uses: alphagov/di-github-actions/sam/delete-stacks@f5dbfa65c3d3e100b12413dd6816176783ce8308
+      uses: alphagov/di-github-actions/sam/delete-stacks@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         only-if-failed: true
         stack-names: ${{ env.STACK_NAME }}
