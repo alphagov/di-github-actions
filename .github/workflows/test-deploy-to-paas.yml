@@ -62,7 +62,7 @@ jobs:
           [[ ${{ steps.use-url.outputs.deployment-url }} == test-app-name-url.com ]]
 
 
-      - name: Generate app name and URL from branch name
+      - name: Use app name from manifest
         id: generate-app-name
         uses: ./paas/deploy-app
         with:
@@ -71,18 +71,10 @@ jobs:
           cf-username: cf-username
           cf-password: cf-password
 
-      - name: Get app name from branch
-        id: get-branch-app-name
-        uses: ./beautify-branch-name
-        with:
-          downcase: true
-          length-limit: 63
-          underscores-to-hyphens: true
-
       - name: Check app name and URL generated from branch name
         run: |
-          [[ $PUSHED_APP_NAME == ${{ steps.get-branch-app-name.outputs.pretty-branch-name }} ]]
-          [[ ${{ steps.generate-app-name.outputs.deployment-url }} == https://${PUSHED_APP_NAME}.london.cloudapps.digital ]]
+          [[ -z $PUSHED_APP_NAME ]]
+          [[ -z "${{ steps.generate-app-name.outputs.deployment-url }}" ]]
 
 
       - name: Use provided prefix for generated app name

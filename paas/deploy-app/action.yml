@@ -17,7 +17,7 @@ inputs:
     description: 'The name of the deployed app. Overrides the name in the manifest and the one derived from branch name'
     required: false
   app-name-prefix:
-    description: 'Prefix to use when deriving app name from branch name'
+    description: 'Derive the app name from the branch name and use the provided prefix'
     required: false
   variables:
     description: 'key=value pairs for variable substitution in the manifest, separated by newlines or "|"'
@@ -69,7 +69,7 @@ runs:
 
     - name: Set deployment hostname
       id: set-deployment-hostname
-      if: ${{ inputs.app-name == null && inputs.url == null }}
+      if: ${{ inputs.app-name == null && inputs.app-name-prefix != null }}
       uses: alphagov/di-github-actions/beautify-branch-name@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
       with:
         downcase: true
@@ -86,6 +86,7 @@ runs:
       run: echo "::set-output name=app-name::$APP_NAME"
 
     - name: Set deployment URL
+      if: ${{ inputs.url != null || steps.set-app-name.outputs.app-name != null }}
       id: set-deployment-url
       shell: bash
       env:
