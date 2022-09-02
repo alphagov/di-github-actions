@@ -12,6 +12,10 @@ inputs:
     description: 'Whether to replace all underscores with hyphens'
     required: false
     default: 'true'
+  tidy-dependabot-branch:
+    description: 'Whether to beautify dependabot generated branch names to db-function-package-version'
+    required: false
+    default: 'false'
   length-limit:
     description: 'Maximum length of the modified string'
     required: false
@@ -40,6 +44,7 @@ runs:
         BRANCH_NAME: ${{ inputs.branch-name }}
         DOWNCASE_NAME: ${{ inputs.downcase == 'true' }}
         UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens == 'true' }}
+        TIDY_DEPENDENCY_BOT_BRANCH: ${{ inputs.tidy-dependabot-branch == 'true' }}
         TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
         PREFIX: ${{ inputs.prefix }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}
