@@ -18,6 +18,10 @@ inputs:
     description: 'Use SAM beta features when building an application'
     required: false
     default: 'false'
+  disable-cache:
+    description: 'Set to true to use the --no-cached option'
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -39,7 +43,9 @@ runs:
       env:
         TEMPLATE_FILE: ${{ inputs.sam-template-file }}
         BETA_FEATURES: ${{ inputs.enable-beta-features == 'true' }}
+        DISABLE_CACHE: ${{ inputs.disable-cache == 'true' }}
       run: |
-        sam build --cached --parallel \
+        sam build --parallel \
+          $($DISABLE_CACHE || echo "--cached") \
           $($BETA_FEATURES && echo "--beta-features") \
           ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
