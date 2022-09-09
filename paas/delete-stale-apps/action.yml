@@ -9,18 +9,7 @@ runs:
   using: 'composite'
   steps:
     - name: Clean up stale deployments
+      run: ${{ github.action_path }}/delete-stale-apps.sh
       shell: bash
       env:
         THRESHOLD_DAYS: ${{ inputs.age-threshold-days }}
-      run: |
-        cut_off_date=$(date -d "$THRESHOLD_DAYS days ago" +%Y-%m-%d)
-        echo "Cut off date: $cut_off_date"
-        
-        for app in $(cf apps | awk 'NR>3 {print $1}'); do
-          last_upload_date=$(cf events "$app" | grep audit.app.package.upload | awk 'NR==1 {print $1}') || true
-          echo "$app | last uploaded: $last_upload_date"
-        
-          if [[ -z $last_upload_date || $(date -d "$last_upload_date" +%Y-%m-%d) < $cut_off_date ]]; then
-            cf delete "$app" -rf || true
-          fi
-        done

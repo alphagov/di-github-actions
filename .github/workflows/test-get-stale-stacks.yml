@@ -39,7 +39,7 @@ jobs:
 
       - name: Check stacks older than specified age included
         run: |
-          [[ "${{ steps.include-stale-stacks.outputs.stack-names }}" == "test-one test-two test-three dev-one dev-two dev-three" ]]
+          [[ "${{ steps.include-stale-stacks.outputs.stack-names }}" == "test-one test-two test-three dev-one dev-two dev-three dev-four" ]]
 
 
       - name: Filter stacks by name
@@ -83,7 +83,7 @@ jobs:
 
       - name: Check environment variable set
         run: |
-          [[ $STALE_STACKS == "test-one test-three dev-one dev-two dev-three" ]]
+          [[ $STALE_STACKS == "test-one test-three dev-one dev-two dev-three dev-four" ]]
 
 
       - name: Set accumulated stacks env var
@@ -97,4 +97,4 @@ jobs:
 
       - name: Check accumulated stacks environment variable set
         run: |
-          [[ $ACCUMULATED_STACKS == "extra-one extra-two test-one test-three dev-one dev-two dev-three" ]]
+          [[ $ACCUMULATED_STACKS == "extra-one extra-two test-one test-three dev-one dev-two dev-three dev-four" ]]

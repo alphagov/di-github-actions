@@ -45,7 +45,7 @@ jobs:
       - name: Check underscores replaced
         run: |
           [[ ${{ steps.replace-underscores.outputs.pretty-branch-name }} == branch-name-with-underscores ]]
-          
+
 
       - name: Do not replace underscores
         id: replace-underscores-not
@@ -57,6 +57,29 @@ jobs:
       - name: Check underscores not replaced
         run: |
           [[ ${{ steps.replace-underscores-not.outputs.pretty-branch-name }} == branch_name_with-underscores ]]
+
+
+      - name: Replace illegal characters with hyphens
+        id: replace-illegal-characters-hyphens
+        uses: ./beautify-branch-name
+        with:
+          branch-name: branch.name-with/illegal_characters
+
+      - name: Check illegal characters replaced with hyphens
+        run: |
+          [[ ${{ steps.replace-illegal-characters-hyphens.outputs.pretty-branch-name }} == branch-name-with-illegal-characters ]]
+
+
+      - name: Replace illegal characters with underscores
+        id: replace-illegal-characters-underscores
+        uses: ./beautify-branch-name
+        with:
+          branch-name: branch.name-with/illegal_characters
+          underscores-to-hyphens: false
+
+      - name: Check illegal characters replaced with underscores
+        run: |
+          [[ ${{ steps.replace-illegal-characters-underscores.outputs.pretty-branch-name }} == branch_name-with_illegal_characters ]]
 
 
       - name: Truncate length
