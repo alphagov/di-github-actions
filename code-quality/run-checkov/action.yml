@@ -72,6 +72,6 @@ runs:
 
     - name: Report Checkov result
       if: ${{ failure() }}
-      uses: alphagov/di-github-actions/report-step-result@5d1ae55ce54ef9c127090d0be477c58f3a3e32dd
+      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
       with:
         file-path: ${{ runner.temp }}/checkov.output
