@@ -11,7 +11,7 @@ for stack in "${stacks[@]}"; do
   aws cloudformation describe-stacks --stack-name "$stack" > /dev/null && real_stacks+=("$stack") || fake_stacks+=("$stack")
 done
 
-echo "::set-output name=existing-stacks::${real_stacks[*]}"
+echo "existing-stacks=${real_stacks[*]}" >> "$GITHUB_OUTPUT"
 
 if [[ $env_var ]]; then
   echo "Setting environment variable $env_var..."

@@ -19,7 +19,7 @@ for kvp in "${key_value_pairs[@]}"; do
   parameters+=("$element")
 done
 
-echo "::set-output name=parsed-parameters::${parameters[*]}"
+echo "parsed-parameters=${parameters[*]}" >> "$GITHUB_OUTPUT"
 
 if [[ $env_var ]]; then
   echo "Setting environment variable $env_var..."

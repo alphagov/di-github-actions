@@ -49,7 +49,7 @@ for stack in "${stack_names[@]}"; do
   echo "$stack | last updated: $last_updated_date"
 done
 
-echo "::set-output name=stack-names::${stale_stacks[*]}"
+echo "stack-names=${stale_stacks[*]}" >> "$GITHUB_OUTPUT"
 
 if [[ $env_var ]]; then
   all_stacks=("${imported_stacks[@]}" "${stale_stacks[@]}")

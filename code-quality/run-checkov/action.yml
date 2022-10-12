@@ -15,8 +15,8 @@ runs:
       run: |
         merging=false
         [[ $EVENT == pull_request ]] && merging=true && fetch_depth=2
-        echo "::set-output name=fetch-depth::${fetch_depth:-}"
-        echo "::set-output name=merging::$merging"
+        echo "fetch-depth=${fetch_depth:-}" >> "$GITHUB_OUTPUT"
+        echo "merging=$merging" >> "$GITHUB_OUTPUT"
 
     - name: Pull repository
       uses: actions/checkout@v3

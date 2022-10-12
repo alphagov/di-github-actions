@@ -19,7 +19,7 @@ $downcase && branch_name=$(echo "$branch_name" | tr "[:upper:]" "[:lower:]")
 $replace_underscores && branch_name=$(echo "$branch_name" | tr "_" "-")
 branch_name=$(echo "$branch_name" | cut -c1-"$length_limit")
 
-echo "::set-output name=pretty-branch-name::$branch_name"
+echo "pretty-branch-name=$branch_name" >> "$GITHUB_OUTPUT"
 
 if [[ $env_var ]]; then
   echo "Setting environment variable $env_var..."

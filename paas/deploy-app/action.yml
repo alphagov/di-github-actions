@@ -83,7 +83,7 @@ runs:
       shell: bash
       env:
         APP_NAME: ${{ steps.set-deployment-hostname.outputs.pretty-branch-name || inputs.app-name }}
-      run: echo "::set-output name=app-name::$APP_NAME"
+      run: echo "app-name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
     - name: Set deployment URL
       if: ${{ inputs.url != null || steps.set-app-name.outputs.app-name != null }}
@@ -92,7 +92,7 @@ runs:
       env:
         URL: ${{ inputs.url }}
         HOSTNAME: ${{ steps.set-app-name.outputs.app-name }}
-      run: echo "::set-output name=deployment-url::${URL:-https://${HOSTNAME}.london.cloudapps.digital}"
+      run: echo "deployment-url=${URL:-https://${HOSTNAME}.london.cloudapps.digital}" >> "$GITHUB_OUTPUT"
 
     - name: Push to PaaS
       shell: bash
