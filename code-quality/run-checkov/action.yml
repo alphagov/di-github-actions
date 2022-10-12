@@ -28,7 +28,7 @@ runs:
       with:
         python-version: '3.x'
         cache-dependency-path: ./.github/workflows
-        cache: 'pip'
+        cache: pip
 
     - name: Install Checkov
       run: echo "::group::pip output" && pip install checkov && echo "::endgroup::"
