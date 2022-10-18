@@ -60,11 +60,10 @@ runs:
         FILES: ${{ steps.get-files.outputs.files }}
         OUTPUT_FILE: ${{ runner.temp }}/prettier.output
       run: |
-        echo "::group::Run Prettier"
+        echo "::notice::Running Prettier..."
         read -ra files <<< "$FILES"
         [[ ${#files[@]} -eq 0 ]] && files=(.)
         npx prettier --check "${files[@]}" 2>&1 | tee "$OUTPUT_FILE"        
-        echo "::endgroup::"
 
     - name: Run ESLint
       id: run-eslint
@@ -76,7 +75,7 @@ runs:
         STRICT: ${{ inputs.error-on-warnings == 'true' }}
         OUTPUT_FILE: ${{ runner.temp }}/eslint.output
       run: |
-        echo "::group::Run ESLint"
+        echo "::notice::Running ESLint..."
         $STRICT && max_warnings="--max-warnings=0"
         
         if [[ -n $FILES ]]; then
@@ -92,10 +91,8 @@ runs:
           es_files=(.)
         fi
         
-        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"
-        
+        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"     
         echo "report-result=true" >> "$GITHUB_OUTPUT"
-        echo "::endgroup::"
 
     - name: Write Prettier results
       id: report-prettier
