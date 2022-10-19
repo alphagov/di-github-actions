@@ -1,0 +1,128 @@
+name: 'Build Docker image'
+description: 'Build and push a Docker image to an ECR repo'
+inputs:
+  aws-role-arn:
+    description: 'ARN of AWS role to assume when authenticating to ECR'
+    required: true
+  aws-region:
+    description: 'AWS region to use'
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: 'Override the default AWS session name'
+    required: false
+  repository:
+    description: 'ECR repository name'
+    required: true
+  image-version:
+    description: 'A unique version identifier to be used as an image tag'
+    required: false
+    default: latest
+  image-tags:
+    description: 'A list list additional tags to apply to the image, delimited by spaces or newlines'
+    required: false
+  immutable-tags:
+    description: 'Whether the repository is immutable (tags cannot be overwritten)'
+    required: false
+    default: 'true'
+  dockerfile-path:
+    description: 'Path to the Dockerfile to use'
+    required: false
+  build-path:
+    description: "Path to the directory to build"
+    required: false
+    default: "."
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Check image exists
+      id: check-image-exists
+      if: ${{ inputs.immutable-tags == 'true' && inputs.image-version != null }}
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      with:
+        repository: ${{ inputs.REPOSITORY }}
+        image-tags: ${{ inputs.image-version }}
+
+    - name: Get previous image version
+      id: get-previous-version
+      if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-exists == 'false' }}
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      with:
+        repository: ${{ inputs.repository }}
+        image-tags: ${{ inputs.image-tags }}
+
+    - name: Delete previous image version
+      id: delete-previous-version
+      if: ${{ inputs.immutable-tags == 'true' && steps.get-previous-version.outputs.image-exists == 'true' }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_DIGEST: ${{ steps.get-previous-version.outputs.image-digest }}
+        OUTPUT_FILE: ${{ runner.temp }}/delete-images.output
+      run: |
+        echo "Deleting previous image version..."
+        aws ecr batch-delete-image \
+          --repository-name "$REPOSITORY" \
+          --image-ids imageDigest="$IMAGE_DIGEST" \
+          --output text | tee "$OUTPUT_FILE"
+
+    - name: Report deleted previous image version
+      if: ${{ steps.delete-previous-version.outcome == 'success' }}
+      uses: alphagov/di-github-actions/report-step-result@28a6bf96563343af503eac737bff50d8e93505ff
+      with:
+        file-path: ${{ runner.temp }}/delete-images.output
+        title: Deleted previous image version
+        language: shell
+
+    - name: Build Docker image
+      id: build-image
+      if: ${{ steps.check-image-exists.outputs.image-exists != 'true' }}
+      shell: bash
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_VERSION: ${{ inputs.image-version }}
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+        DOCKERFILE: ${{ inputs.dockerfile-path }}
+        BUILD_PATH: ${{ inputs.build-path }}
+      run: |
+        echo "::group::Build image"
+        read -ra tags <<< "$IMAGE_TAGS"
+        read -ra tags <<< "${tags[@]/#/--tag $REGISTRY/$REPOSITORY:}"        
+        image_name=${IMAGE_VERSION:+$REGISTRY/$REPOSITORY:$IMAGE_VERSION}        
+        docker build ${image_name:+--tag $image_name} "${tags[@]}" ${DOCKERFILE:+--file $DOCKERFILE} "$BUILD_PATH"
+        echo "::endgroup::"
+
+    - name: Push Docker image
+      id: push-docker-image
+      if: ${{ steps.build-image.outcome == 'success' }}
+      shell: bash
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        echo "::group::Push image"
+        docker push --all-tags "$REGISTRY/$REPOSITORY"
+        echo "::endgroup::"
+
+    - name: Report pushed image
+      if: ${{ steps.push-docker-image.outcome == 'success' }}
+      shell: bash
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        mapfile -t tags < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Tag}}')
+        [[ ${#tags[@]} -gt 1 ]] && plural=s
+        IFS=' '; echo "Pushed image with tag${plural:-} \`${tags[*]}\`" >> "$GITHUB_STEP_SUMMARY"
