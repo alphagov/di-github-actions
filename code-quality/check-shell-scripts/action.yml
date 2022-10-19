@@ -17,7 +17,7 @@ inputs:
     required: false
     default: .sh
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Check if merge commit
       id: check-merge-commit

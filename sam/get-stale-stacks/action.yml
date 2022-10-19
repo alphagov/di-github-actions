@@ -22,7 +22,7 @@ outputs:
     description: 'Filtered stack names'
     value: ${{ steps.filter-stacks.outputs.stack-names }}
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Parse tag filters
       id: parse-tag-filters

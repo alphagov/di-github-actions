@@ -16,7 +16,7 @@ outputs:
     description: 'A string representation of a regular or an associative array containing the parsed params'
     value: ${{ steps.parse-parameters.outputs.parsed-parameters }}
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Parse parameters
       id: parse-parameters

@@ -32,7 +32,7 @@ outputs:
     description: 'The deployed stack name'
     value: ${{ steps.deploy-stack.outputs.stack-name }}
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Parse parameters
       id: parse-parameters

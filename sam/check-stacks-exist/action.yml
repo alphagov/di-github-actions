@@ -16,7 +16,7 @@ outputs:
     description: 'Names of the stacks confirmed to exist (space-delimited string)'
     value: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Check stack exists
       id: check-stacks-exist
