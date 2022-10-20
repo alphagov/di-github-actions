@@ -1,0 +1,34 @@
+name: 'Get image digests'
+description: 'Get the digests of images in an ECR repository with the specified tags, if they exist in the repo'
+inputs:
+  repository:
+    description: 'ECR repository name'
+    required: true
+  image-tags:
+    description: 'Tags associated with the targeted images, delimited by spaces or newlines'
+    required: true
+outputs:
+  image-digests:
+    description: 'A string representation of an array containing the digests of the images with the specified tags'
+    value: ${{ steps.get-image-digests.outputs.image-digests }}
+runs:
+  using: composite
+  steps:
+    - name: Get image digests
+      id: get-image-digests
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+      run: |
+        read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
+        tags=("${tags[@]/#/\'}") && tags=("${tags[@]/%/\'}")
+        tag_list=$(IFS=","; echo "[${tags[*]}]")
+        
+        image_list=$(aws ecr list-images \
+          --repository-name "$REPOSITORY" \
+          --query "imageIds[?contains($tag_list, imageTag)].[imageDigest]" \
+          --output text | uniq)
+        
+        mapfile -t images <<< "$image_list"
+        echo "image-digests=${images[*]}" >> "$GITHUB_OUTPUT"

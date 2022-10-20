@@ -30,7 +30,7 @@ outputs:
     description: 'Beautified branch name'
     value: ${{ steps.transform-branch-name.outputs.pretty-branch-name }}
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Transform branch name
       id: transform-branch-name

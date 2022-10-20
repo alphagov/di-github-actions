@@ -13,7 +13,7 @@ inputs:
     required: false
     default: 'false'
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Check stacks exist
       id: check-stacks-exist

@@ -1,0 +1,55 @@
+name: 'Check image exists'
+description: 'Check if the image with the specified tags exists in the queried ECR repo'
+inputs:
+  repository:
+    description: 'ECR repository name'
+    required: true
+  image-tags:
+    description: 'Tags associated with the targeted image, delimited by spaces or newlines'
+    required: true
+outputs:
+  image-exists:
+    description: 'Boolean indicating whether the image exists'
+    value: ${{ steps.check-image-exists.outputs.image-exists }}
+  image-digest:
+    description: 'Digest of the image if it exists'
+    value: ${{ steps.check-image-exists.outputs.image-digest }}
+runs:
+  using: composite
+  steps:
+    - name: Get image digests
+      id: get-image-digests
+      uses: alphagov/di-github-actions/aws/ecr/get-image-digests@e87b9378ea8cb6a6debdd90eb1097759d79ea919
+      with:
+        repository: ${{ inputs.repository }}
+        image-tags: ${{ inputs.image-tags }}
+
+    - name: Check image exists
+      id: check-image-exists
+      shell: bash
+      env:
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+        IMAGE_DIGESTS: ${{ steps.get-image-digests.outputs.image-digests }}
+      run: |
+        read -ra images <<< "$IMAGE_DIGESTS"
+        
+        if [[ ${#images[@]} -gt 1 ]]; then
+          echo "::error::Expected only one image with tags '$IMAGE_TAGS' but got multiple: ${images[*]}"
+          exit 1
+        fi
+        
+        [[ ${#images[@]} -eq 1 ]] && image_exists=true || image_exists=false
+        echo "image-exists=$image_exists" >> "$GITHUB_OUTPUT"
+        echo "image-digest=${images[*]}" >> "$GITHUB_OUTPUT"
+
+    - name: Report result
+      if: ${{ steps.check-image-exists.outputs.image-exists == 'true' }}
+      shell: bash
+      env:
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+        REPOSITORY: ${{ inputs.repository }}
+      run: |
+        read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
+        [[ ${#tags[@]} -gt 1 ]] && plural=s
+        echo "Image with tag${plural:-} \`${tags[*]}\` exists in repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY" 
+        cat "$GITHUB_STEP_SUMMARY"

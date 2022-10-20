@@ -6,7 +6,7 @@ inputs:
     required: false
     default: '30'
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Clean up stale deployments
       run: ${{ github.action_path }}/delete-stale-apps.sh

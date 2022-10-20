@@ -14,7 +14,7 @@ inputs:
     description: 'The PaaS account password'
     required: true
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Install Cloud Foundry client
       shell: bash
