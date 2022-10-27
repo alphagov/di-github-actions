@@ -76,17 +76,23 @@ runs:
         OUTPUT_FILE: ${{ runner.temp }}/eslint.output
       run: |
         echo "::notice::Running ESLint..."
-        $STRICT && max_warnings="--max-warnings=0"
+        
+        if $STRICT; then
+          max_warnings="--max-warnings=0"
+        fi
         
         if [[ -n $FILES ]]; then
-          types="$(echo -n "$TYPES" | tr ' ' '\n')"
-          files="$(echo -n "$FILES" | tr ' ' '\n')"
+          read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
+          read -ra files <<< "$(tr '\n' ' ' <<< "$FILES")"
         
-          es_files="$(grep -F "$types" <<< "$files" || true)"
-          
-          [[ -z $es_files ]] && echo "No files to check" && exit 0
+          es_files=$(find "${files[@]}" -iregex "$(IFS="|"; echo ".*\.(${types[*]##.})$")")
         
-          read -ra es_files <<< "$es_files"
+          if [[ -z $es_files ]]; then
+            echo "No files to check"
+            exit 0
+          fi
+        
+          mapfile -t es_files <<< "$es_files"
         else
           es_files=(.)
         fi
