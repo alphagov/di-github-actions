@@ -98,7 +98,6 @@ runs:
         fi
         
         npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"     
-        echo "report-result=true" >> "$GITHUB_OUTPUT"
 
     - name: Write Prettier results
       id: report-prettier
@@ -111,7 +110,7 @@ runs:
 
     - name: Write ESLint results
       id: report-eslint
-      if: ${{ failure() && steps.run-eslint.outcome == 'failure' || steps.run-eslint.outputs.report-result == 'true' }}
+      if: ${{ failure() && steps.run-eslint.outcome == 'failure' }}
       uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
       with:
         file-path: ${{ runner.temp }}/eslint.output
