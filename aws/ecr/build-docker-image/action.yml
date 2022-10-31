@@ -3,13 +3,16 @@ description: 'Build and push a Docker image to an ECR repo'
 inputs:
   aws-role-arn:
     description: 'ARN of AWS role to assume when authenticating to ECR'
-    required: true
+    required: false
   aws-region:
     description: 'AWS region to use'
     required: false
     default: eu-west-2
   aws-session-name:
     description: 'Override the default AWS session name'
+    required: false
+  registry:
+    description: 'Registry which contains the specified repository'
     required: false
   repository:
     description: 'ECR repository name'
@@ -32,10 +35,28 @@ inputs:
     description: "Path to the directory to build"
     required: false
     default: "."
+outputs:
+  registry:
+    description: "Registry to which the Docker image was pushed"
+    value: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
+  repository:
+    description: "Pass through the repository used to push the Docker image"
+    value: ${{ inputs.repository }}
+  image-version:
+    description: "Pass through the version of the Docker image pushed to ECR"
+    value: ${{ inputs.image-version }}
+  image-digest:
+    description: "Digest of the Docker image pushed to ECR"
+    value: ${{ steps.check-image-exists.outputs.image-digest || steps.report-pushed-image.outputs.image-digest }}
+  image-tags:
+    description: "Pass through the additional tags applied to the Docker image"
+    value: ${{ inputs.image-tags }}
 runs:
   using: composite
   steps:
     - name: Assume AWS Role
+      id: assume-aws-role
+      if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v1-node16
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
@@ -43,6 +64,7 @@ runs:
         aws-region: ${{ inputs.aws-region }}
 
     - name: Login to ECR
+      if: ${{ inputs.registry == null }}
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
@@ -87,10 +109,10 @@ runs:
 
     - name: Build Docker image
       id: build-image
-      if: ${{ steps.check-image-exists.outputs.image-exists != 'true' }}
+      if: ${{ steps.check-image-exists.outputs.image-exists == 'false' }}
       shell: bash
       env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_VERSION: ${{ inputs.image-version }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
@@ -109,7 +131,7 @@ runs:
       if: ${{ steps.build-image.outcome == 'success' }}
       shell: bash
       env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
       run: |
         echo "::group::Push image"
@@ -117,12 +139,24 @@ runs:
         echo "::endgroup::"
 
     - name: Report pushed image
+      id: report-pushed-image
       if: ${{ steps.push-docker-image.outcome == 'success' }}
       shell: bash
       env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
       run: |
         mapfile -t tags < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Tag}}')
-        [[ ${#tags[@]} -gt 1 ]] && plural=s
-        IFS=' '; echo "Pushed image with tag${plural:-} \`${tags[*]}\`" >> "$GITHUB_STEP_SUMMARY"
+        mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | uniq)
+        
+        if [[ ${#digests[@]} -ne 1 ]]; then
+          echo "Expected one image digest for image $REGISTRY/$REPOSITORY but got \`${digests[*]}\`"
+          exit 1
+        fi
+        
+        digest=${digests[*]}
+        [[ ${#tags[@]} -gt 1 ]] && plural=true
+        [[ ${#tags[@]} -gt 0 ]] && tag_msg="tag${plural:+s} \`${tags[*]}\`"
+        
+        echo "Pushed image with ${tag_msg:-digest \`$digest\`}" >> "$GITHUB_STEP_SUMMARY"
+        echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
