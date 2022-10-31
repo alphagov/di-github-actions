@@ -82,22 +82,21 @@ runs:
         fi
         
         if [[ -n $FILES ]]; then
+          files="$(tr ' ' '\n' <<< "$FILES")"
           read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
-          read -ra files <<< "$(tr '\n' ' ' <<< "$FILES")"
+          filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
         
-          es_files=$(find "${files[@]}" -iregex "$(IFS="|"; echo ".*\.(${types[*]##.})$")")
-        
-          if [[ -z $es_files ]]; then
+          if es_files="$(grep -E --regexp="$filetype_regex" <<< "$files")"; then
+            mapfile -t es_files <<< "$es_files"
+          else
             echo "No files to check"
             exit 0
           fi
-        
-          mapfile -t es_files <<< "$es_files"
         else
           es_files=(.)
         fi
         
-        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"     
+        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"  
 
     - name: Write Prettier results
       id: report-prettier
