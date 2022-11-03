@@ -63,7 +63,7 @@ runs:
         echo "::notice::Running Prettier..."
         read -ra files <<< "$FILES"
         [[ ${#files[@]} -eq 0 ]] && files=(.)
-        npx prettier --check "${files[@]}" 2>&1 | tee "$OUTPUT_FILE"        
+        npx prettier --ignore-unknown --check "${files[@]}" 2>&1 | tee "$OUTPUT_FILE"        
 
     - name: Run ESLint
       id: run-eslint
