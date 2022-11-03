@@ -1,0 +1,55 @@
+name: 'Print a list of values to the job summary'
+description: 'Print the specified list to the current job summary with an action message'
+inputs:
+  values:
+    description: 'Values to append to the job summary, space or newline-delimited string'
+    required: true
+  message:
+    description: 'Message to print before the list'
+    required: true
+  single-message:
+    description: 'Message to print when the list contains a single element; use the token %s to insert the value'
+    required: false
+  code-block:
+    description: 'Print the values in a code block'
+    required: false
+    default: 'true'
+  output-file-path:
+    description: 'Override the default destination and write the output to the specified file instead'
+    required: false
+  quiet:
+    description: 'Whether to print the report to the console'
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - name: Set report file path
+      shell: bash
+      env:
+        TEMP: ${{ runner.temp }}
+      run: echo "REPORT=$TEMP/step-report-$(uuidgen)" >> "$GITHUB_ENV"
+
+    - name: Append values to report
+      shell: bash
+      env:
+        VALUES: ${{ inputs.values }}
+        MESSAGE: ${{ inputs.message }}
+        SINGLE_MESSAGE: ${{ inputs.single-message }}
+        CODE_BLOCK: ${{ inputs.code-block == 'true' }}
+        SCRIPT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: $SCRIPT >> "$REPORT"
+
+    - name: Write report
+      shell: bash
+      env:
+        OUT_FILE: ${{ inputs.output-file-path }}
+      run: |
+        output_file=${OUT_FILE:-$GITHUB_STEP_SUMMARY}
+        cat "$REPORT" >> "$output_file"
+        echo "The result has been written to ${OUT_FILE:-the job summary}"
+
+    - name: Log report
+      if: ${{ inputs.quiet == 'false' }}
+      shell: bash
+      run: cat "$REPORT"
