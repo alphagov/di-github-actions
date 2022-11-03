@@ -2,7 +2,6 @@ set -eu
 
 raw_parameters=$(echo -n "${PARAMETERS}")   # The parameters to parse
 associative_arr=${ASSOCIATIVE_ARRAY:-false} # Whether to encode output as a string representing an associative array
-env_var=${ENV_VAR_NAME}
 
 num_lines=$(wc -l <<< "$raw_parameters")
 if [[ $num_lines -le 1 ]]; then
@@ -18,10 +17,5 @@ for kvp in "${key_value_pairs[@]}"; do
   $associative_arr && element="[$name]='$value'" || element="$name='$value'"
   parsed_parameters+=("$element")
 done
-
-if [[ $env_var ]]; then
-  echo "Setting environment variable $env_var..."
-  echo "$env_var=${parsed_parameters[*]}" >> "$GITHUB_ENV"
-fi
 
 echo "${parsed_parameters[*]}"

@@ -42,5 +42,14 @@ runs:
         UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens == 'true' }}
         TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
         PREFIX: ${{ inputs.prefix }}
-        SET_ENV_VAR: ${{ inputs.set-env-var }}
         USAGE: ${{ inputs.usage }}
+
+    - name: Set environment variable
+      if: ${{ inputs.set-env-var != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.set-env-var }}
+        BRANCH_NAME: ${{ steps.transform-branch-name.outputs.pretty-branch-name }}
+      run: |
+        echo "Setting environment variable $ENV_VAR..."
+        echo "$ENV_VAR=$BRANCH_NAME" >> "$GITHUB_ENV"

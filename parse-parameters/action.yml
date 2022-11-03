@@ -23,10 +23,19 @@ runs:
       shell: bash
       env:
         PARAMETERS: ${{ inputs.parameters }}
-        ENV_VAR_NAME: ${{ inputs.env-var-name }}
         ASSOCIATIVE_ARRAY: ${{ inputs.associative-array == 'true' }}
         SCRIPT: ${{ github.action_path }}/../scripts/parse-parameters.sh
       run: |
         parameters=$($SCRIPT)
         echo "Parsed ${#parameters[@]} parameters"
         echo "parsed-parameters=${parameters[*]}" >> "$GITHUB_OUTPUT"
+
+    - name: Set environment variable
+      if: ${{ inputs.env-var-name != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.env-var-name }}
+        PARSED_PARAMETERS: ${{ steps.parse-parameters.outputs.parsed-parameters }}
+      run: |
+        echo "Setting environment variable $ENV_VAR..."
+        echo "$ENV_VAR=$PARSED_PARAMETERS" >> "$GITHUB_ENV"

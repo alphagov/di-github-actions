@@ -41,7 +41,16 @@ runs:
         THRESHOLD_DAYS: ${{ inputs.threshold-days }}
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
         STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.tag-filters }}
-        ENV_VAR_NAME: ${{ inputs.env-var-name }}
+
+    - name: Set environment variable
+      if: ${{ inputs.env-var-name != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.env-var-name }}
+        STACK_NAMES: ${{ steps.filter-stacks.outputs.stack-names }}
+      run: |
+        echo "Setting environment variable $ENV_VAR..."
+        echo "$ENV_VAR=$STACK_NAMES" >> "$GITHUB_ENV"
 
     - name: Report stacks found
       if: ${{ steps.filter-stacks.outputs.stack-names != null }}

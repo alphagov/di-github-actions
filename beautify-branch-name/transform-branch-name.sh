@@ -4,7 +4,6 @@ branch_name=${PREFIX:+$PREFIX-}${BRANCH_NAME:-${GITHUB_HEAD_REF:-$GITHUB_REF_NAM
 replace_underscores=${UNDERSCORES_TO_HYPHENS}
 length_limit=${TOTAL_LENGTH_LIMIT}
 downcase=${DOWNCASE_NAME}
-env_var=${SET_ENV_VAR}
 message=${USAGE}
 
 if [[ $length_limit -lt 1 ]]; then
@@ -20,11 +19,6 @@ $replace_underscores && branch_name=$(echo "$branch_name" | tr "_" "-")
 branch_name=$(echo "$branch_name" | cut -c1-"$length_limit")
 
 echo "pretty-branch-name=$branch_name" >> "$GITHUB_OUTPUT"
-
-if [[ $env_var ]]; then
-  echo "Setting environment variable $env_var..."
-  echo "$env_var=$branch_name" >> "$GITHUB_ENV"
-fi
 
 echo "${message:-Pretty branch name}: \`$branch_name\`" >> "$GITHUB_STEP_SUMMARY"
 cat "$GITHUB_STEP_SUMMARY"
