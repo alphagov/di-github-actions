@@ -41,7 +41,7 @@ runs:
   using: composite
   steps:
     - name: Auth to PaaS
-      uses: alphagov/di-github-actions/paas/log-in-to-paas@4460b10baa63ab00496fe5f5f39495d428018a27
+      uses: alphagov/di-github-actions/paas/log-in-to-paas@5b880e99b78950f38202922aa51e3ccfae9bc13a
       with:
         cf-org-name: ${{ inputs.cf-org-name }}
         cf-space-name: ${{ inputs.cf-space-name }}
@@ -50,7 +50,7 @@ runs:
 
     - name: Parse variables
       id: parse-variables
-      uses: alphagov/di-github-actions/parse-parameters@4460b10baa63ab00496fe5f5f39495d428018a27
+      uses: alphagov/di-github-actions/parse-parameters@5b880e99b78950f38202922aa51e3ccfae9bc13a
       with:
         parameters: ${{ inputs.variables }}
         associative-array: true
@@ -70,7 +70,7 @@ runs:
     - name: Set deployment hostname
       id: set-deployment-hostname
       if: ${{ inputs.app-name == null && inputs.app-name-prefix != null }}
-      uses: alphagov/di-github-actions/beautify-branch-name@4460b10baa63ab00496fe5f5f39495d428018a27
+      uses: alphagov/di-github-actions/beautify-branch-name@5b880e99b78950f38202922aa51e3ccfae9bc13a
       with:
         downcase: true
         length-limit: 63

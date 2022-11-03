@@ -71,7 +71,7 @@ runs:
     - name: Check image exists
       id: check-image-exists
       if: ${{ inputs.immutable-tags == 'true' && inputs.image-version != null }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@b78d425fd7bf96b590f946bdf6dc37e720a1325b
       with:
         repository: ${{ inputs.REPOSITORY }}
         image-tags: ${{ inputs.image-version }}
@@ -79,7 +79,7 @@ runs:
     - name: Get previous image version
       id: get-previous-version
       if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-exists == 'false' }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@b78d425fd7bf96b590f946bdf6dc37e720a1325b
       with:
         repository: ${{ inputs.repository }}
         image-tags: ${{ inputs.image-tags }}
@@ -101,7 +101,7 @@ runs:
 
     - name: Report deleted previous image version
       if: ${{ steps.delete-previous-version.outcome == 'success' }}
-      uses: alphagov/di-github-actions/report-step-result@28a6bf96563343af503eac737bff50d8e93505ff
+      uses: alphagov/di-github-actions/report-step-result/print-file@b78d425fd7bf96b590f946bdf6dc37e720a1325b
       with:
         file-path: ${{ runner.temp }}/delete-images.output
         title: Deleted previous image version

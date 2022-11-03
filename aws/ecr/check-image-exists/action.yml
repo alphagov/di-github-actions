@@ -19,7 +19,7 @@ runs:
   steps:
     - name: Get image digests
       id: get-image-digests
-      uses: alphagov/di-github-actions/aws/ecr/get-image-digests@e87b9378ea8cb6a6debdd90eb1097759d79ea919
+      uses: alphagov/di-github-actions/aws/ecr/get-image-digests@5b880e99b78950f38202922aa51e3ccfae9bc13a
       with:
         repository: ${{ inputs.repository }}
         image-tags: ${{ inputs.image-tags }}

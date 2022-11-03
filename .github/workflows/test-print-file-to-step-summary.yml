@@ -1,4 +1,4 @@
-name: Report step result test
+name: Print file to step summary test
 
 on: pull_request
 
@@ -19,7 +19,7 @@ jobs:
 
 
       - name: Do not fail on missing report
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: missing.report
           fail-if-report-missing: false
@@ -28,7 +28,7 @@ jobs:
       - name: Fail on missing report
         id: fail-on-missing-report
         continue-on-error: true
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: missing.report
           fail-if-report-missing: true
@@ -41,11 +41,11 @@ jobs:
 
 
       - name: Report result
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report.txt
-          code-block: false
+          quiet: false
 
       - name: Check result reported
         env:
@@ -55,12 +55,25 @@ jobs:
           [[ $(cat "$OUTPUT_FILE") == $(cat "$EXPECTED_FILE") ]]
 
 
+      - name: Do not append a file to itself
+        uses: ./report-step-result/print-file
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+
+      - name: Check file not appended to itself
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          EXPECTED_FILE: ${{ runner.temp }}/report.txt
+        run: |
+          [[ $(cat "$OUTPUT_FILE") == $(cat "$EXPECTED_FILE") ]]
+
+
       - name: Accumulate results
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report.txt
-          code-block: false
 
       - name: Check result accumulated
         env:
@@ -76,11 +89,10 @@ jobs:
 
 
       - name: Include title
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-with-title.txt
-          code-block: false
           title: Report title
 
       - name: Check title included
@@ -97,13 +109,13 @@ jobs:
 
 
       - name: Use code block
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-code-block.txt
           code-block: true
 
-      - name: Check title included
+      - name: Check code block used
         env:
           OUTPUT_FILE: ${{ runner.temp }}/report-code-block.txt
         run: |
@@ -117,11 +129,10 @@ jobs:
 
 
       - name: Use syntax highlighting
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-syntax-highlight.txt
-          code-block: true
           language: shell
 
       - name: Check syntax highlighting used
@@ -138,12 +149,11 @@ jobs:
 
 
       - name: Use all elements
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-all-elements.txt
           title: Report title
-          code-block: true
           language: shell
 
       - name: Check all elements used
