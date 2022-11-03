@@ -1,6 +1,7 @@
 name: Print list to step summary test
 
 on: pull_request
+permissions: read-all
 
 jobs:
   run-tests:
@@ -32,10 +33,9 @@ jobs:
         run: |
           cat << 'EOF' > expected_file
           Reported values: one
-
           EOF
 
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Accumulate results
@@ -53,10 +53,9 @@ jobs:
           cat << 'EOF' > expected_file
           Reported values: one
           Reported other values: two
-
           EOF
 
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use single value message
@@ -74,10 +73,9 @@ jobs:
         run: |
           cat << 'EOF' > expected_file
           Reported single value: one-and-only
-
           EOF
-
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Replace token in single value message
@@ -95,10 +93,9 @@ jobs:
         run: |
           cat << 'EOF' > expected_file
           Reported one-and-only value
-
           EOF
 
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use code block for single value
@@ -115,8 +112,9 @@ jobs:
         run: |
           cat << 'EOF' > expected_file
           Reported values: `single`
+          EOF
 
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Print multiple values
@@ -136,8 +134,10 @@ jobs:
             - one
             - two
             - three
+          
+          EOF
 
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use code block for multiple values
@@ -157,5 +157,6 @@ jobs:
             - `one`
             - `two`
             - `three`
+          EOF
 
           [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]

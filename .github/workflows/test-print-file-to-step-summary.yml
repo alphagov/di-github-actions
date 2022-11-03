@@ -1,6 +1,7 @@
-name: Report step result test
+name: Print file to step summary test
 
 on: pull_request
+permissions: read-all
 
 jobs:
   run-tests:
@@ -19,7 +20,7 @@ jobs:
 
 
       - name: Do not fail on missing report
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: missing.report
           fail-if-report-missing: false
@@ -28,7 +29,7 @@ jobs:
       - name: Fail on missing report
         id: fail-on-missing-report
         continue-on-error: true
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: missing.report
           fail-if-report-missing: true
@@ -41,26 +42,37 @@ jobs:
 
 
       - name: Report result
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report.txt
-          code-block: false
+          quiet: false
 
       - name: Check result reported
         env:
           OUTPUT_FILE: ${{ runner.temp }}/report.txt
           EXPECTED_FILE: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
-        run: |
-          [[ $(cat "$OUTPUT_FILE") == $(cat "$EXPECTED_FILE") ]]
+        run: diff "$OUTPUT_FILE" "$EXPECTED_FILE"
+
+
+      - name: Do not append a file to itself
+        uses: ./report-step-result/print-file
+        with:
+          file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          output-file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+
+      - name: Check file not appended to itself
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
+          EXPECTED_FILE: ${{ runner.temp }}/report.txt
+        run: diff "$OUTPUT_FILE" "$EXPECTED_FILE"
 
 
       - name: Accumulate results
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report.txt
-          code-block: false
 
       - name: Check result accumulated
         env:
@@ -69,18 +81,16 @@ jobs:
           cat << 'EOF' > expected_file
           Stub result
           Stub result
-          
           EOF
           
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Include title
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-with-title.txt
-          code-block: false
           title: Report title
 
       - name: Check title included
@@ -90,20 +100,19 @@ jobs:
           cat << 'EOF' > expected_file
           **Report title**
           Stub result
-          
           EOF
           
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use code block
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-code-block.txt
           code-block: true
 
-      - name: Check title included
+      - name: Check code block used
         env:
           OUTPUT_FILE: ${{ runner.temp }}/report-code-block.txt
         run: |
@@ -113,15 +122,14 @@ jobs:
           ```
           EOF
           
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use syntax highlighting
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-syntax-highlight.txt
-          code-block: true
           language: shell
 
       - name: Check syntax highlighting used
@@ -134,16 +142,15 @@ jobs:
           ```
           EOF
           
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
 
 
       - name: Use all elements
-        uses: ./report-step-result
+        uses: ./report-step-result/print-file
         with:
           file-path: ${{ runner.temp }}/${{ env.REPORT_FILE_NAME }}
           output-file-path: ${{ runner.temp }}/report-all-elements.txt
           title: Report title
-          code-block: true
           language: shell
 
       - name: Check all elements used
@@ -157,4 +164,20 @@ jobs:
           ```
           EOF
           
-          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+          diff "$OUTPUT_FILE" expected_file
+
+
+      - name: Read from standard input
+        env:
+          TITLE: Pipe report
+          LANGUAGE: bash
+          REPORT: ./scripts/report-step-result/print-file.sh
+        run: |
+          cat << 'EOF' > expected_file
+          **Pipe report**
+          ```bash
+          Standard input
+          ```
+          EOF
+          
+          echo "Standard input" | $REPORT | diff expected_file -
