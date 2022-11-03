@@ -2,7 +2,6 @@ set -eu
 
 threshold=${THRESHOLD_DAYS}
 name_filter=${STACK_NAME_FILTER}
-env_var=${ENV_VAR_NAME}
 
 declare -A tag_filters
 eval "tag_filters=(${STACK_TAG_FILTERS})"
@@ -10,13 +9,6 @@ eval "tag_filters=(${STACK_TAG_FILTERS})"
 for name in "${!tag_filters[@]}"; do
   echo "Filtering by tag $name = ${tag_filters[$name]}"
 done
-
-if [[ $env_var ]]; then
-  imported_stacks=()
-  declare -n env_var_ref=$env_var
-  read -ra imported_stacks <<< "${env_var_ref:-}"
-  [[ ${#imported_stacks[@]} -gt 0 ]] && echo "Importing existing stacks: ${imported_stacks[*]}"
-fi
 
 cut_off_date=$(date -d "$threshold days ago" +%Y-%m-%d)
 echo "Cut off date: $cut_off_date"
@@ -46,11 +38,5 @@ for stack in "${stack_names[@]}"; do
   [[ $last_updated_date < $cut_off_date ]] && stale_stacks+=("$stack")
   echo "$stack | last updated: $last_updated_date"
 done
-
-if [[ $env_var ]]; then
-  all_stacks=("${imported_stacks[@]}" "${stale_stacks[@]}")
-  echo "Setting environment variable $env_var..."
-  echo "$env_var=${all_stacks[*]}" >> "$GITHUB_ENV"
-fi
 
 echo "stack-names=${stale_stacks[*]}" >> "$GITHUB_OUTPUT"

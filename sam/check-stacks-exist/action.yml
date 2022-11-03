@@ -24,7 +24,16 @@ runs:
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
-        SET_ENV_VAR: ${{ inputs.set-env-var }}
+
+    - name: Set environment variable
+      if: ${{ inputs.set-env-var != null && steps.check-stacks-exist.outputs.existing-stacks != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.set-env-var }}
+        EXISTING_STACKS: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+      run: |
+        echo "Setting environment variable '$ENV_VAR'..."
+        echo "$ENV_VAR=$EXISTING_STACKS" >> "$GITHUB_ENV"
 
     - name: Report results
       if: ${{ join(steps.check-stacks-exist.outputs.*, '') != null }}
