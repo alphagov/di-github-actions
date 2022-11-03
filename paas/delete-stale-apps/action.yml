@@ -9,7 +9,38 @@ runs:
   using: composite
   steps:
     - name: Clean up stale deployments
+      id: delete-deployments
       run: ${{ github.action_path }}/delete-stale-apps.sh
       shell: bash
       env:
         THRESHOLD_DAYS: ${{ inputs.age-threshold-days }}
+
+    - name: Report deleted apps
+      if: ${{ always() && steps.delete-deployments.outputs.deleted-apps != null }}
+      shell: bash
+      env:
+        VALUES: ${{ steps.delete-deployments.outputs.deleted-apps }}
+        MESSAGE: Deleted apps
+        SINGLE_MESSAGE: Deleted app %s
+        REPORT: ${{ runner.temp }}/deleted-apps-report
+        SCRIPT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: $SCRIPT >> "$REPORT"
+
+    - name: Report failed apps
+      if: ${{ failure() && steps.delete-deployments.outputs.failed-apps != null }}
+      shell: bash
+      env:
+        VALUES: ${{ steps.delete-deployments.outputs.failed-apps }}
+        MESSAGE: Failed to delete apps
+        SINGLE_MESSAGE: Failed to delete app %s
+        REPORT: ${{ runner.temp }}/deleted-apps-report
+        SCRIPT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: $SCRIPT >> "$REPORT"
+
+    - name: Report results
+      if: ${{ always() }}
+      shell: bash
+      env:
+        REPORT: ${{ runner.temp }}/deleted-apps-report
+      run: |
+        ! [[ -f $REPORT ]] || tee "$GITHUB_STEP_SUMMARY" < "$REPORT"
