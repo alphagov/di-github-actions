@@ -1,0 +1,161 @@
+name: Print list to step summary test
+
+on: pull_request
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    env:
+      STUB_REPORT_FILE_NAME: test-result.txt
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Write stub report
+        env:
+          REPORT_FILE: ${{ runner.temp }}/${{ env.STUB_REPORT_FILE_NAME }}
+        run: echo "Stub report" >> "$REPORT_FILE"
+
+
+      - name: Report single value
+        uses: ./report-step-result/print-list
+        with:
+          values: one
+          message: Reported values
+          output-file-path: ${{ runner.temp }}/report.txt
+          code-block: false
+
+      - name: Check single value reported
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values: one
+
+          EOF
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Accumulate results
+        uses: ./report-step-result/print-list
+        with:
+          values: two
+          message: Reported other values
+          output-file-path: ${{ runner.temp }}/report.txt
+          code-block: false
+
+      - name: Check result accumulated
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values: one
+          Reported other values: two
+
+          EOF
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use single value message
+        uses: ./report-step-result/print-list
+        with:
+          values: one-and-only
+          message: Reported values
+          single-message: Reported single value
+          output-file-path: ${{ runner.temp }}/report-single-value.txt
+          code-block: false
+
+      - name: Check single value message used
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-single-value.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported single value: one-and-only
+
+          EOF
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Replace token in single value message
+        uses: ./report-step-result/print-list
+        with:
+          values: one-and-only
+          message: Reported values
+          single-message: Reported %s value
+          output-file-path: ${{ runner.temp }}/report-single-value-token.txt
+          code-block: false
+
+      - name: Check token replaced in single value message
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-single-value-token.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported one-and-only value
+
+          EOF
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use code block for single value
+        uses: ./report-step-result/print-list
+        with:
+          values: single
+          message: Reported values
+          output-file-path: ${{ runner.temp }}/report-code-block-single.txt
+          code-block: true
+
+      - name: Check code block used for single value
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-code-block-single.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values: `single`
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Print multiple values
+        uses: ./report-step-result/print-list
+        with:
+          values: one two three
+          message: Reported values
+          output-file-path: ${{ runner.temp }}/report-multiple-values.txt
+          code-block: false
+
+      - name: Check multiple values reported
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-multiple-values.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values:
+            - one
+            - two
+            - three
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Use code block for multiple values
+        uses: ./report-step-result/print-list
+        with:
+          values: one two three
+          message: Reported values
+          output-file-path: ${{ runner.temp }}/report-code-block-multiple.txt
+          code-block: true
+
+      - name: Check code block used for multiple values
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-code-block-multiple.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values:
+            - `one`
+            - `two`
+            - `three`
+
+          [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
