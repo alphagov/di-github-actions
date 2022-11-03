@@ -50,16 +50,18 @@ runs:
 
     - name: Parse variables
       id: parse-variables
-      uses: alphagov/di-github-actions/parse-parameters@5b880e99b78950f38202922aa51e3ccfae9bc13a
-      with:
-        parameters: ${{ inputs.variables }}
-        associative-array: true
+      shell: bash
+      env:
+        PARAMETERS: ${{ inputs.variables }}
+        ASSOCIATIVE_ARRAY: 'true'
+        SCRIPT: ${{ github.action_path }}/../../scripts/parse-parameters.sh
+      run: echo "variables=$($SCRIPT)" >> "$GITHUB_OUTPUT"
 
     - name: Create variables file
       shell: bash
       env:
         VARS_FILE: ${{ runner.temp }}/variables.yaml
-        VARS: ${{ steps.parse-variables.outputs.parsed-parameters }}
+        VARS: ${{ steps.parse-variables.outputs.variables }}
       run: |
         declare -A variables
         eval "variables=(${VARS})"        

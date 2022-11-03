@@ -26,10 +26,12 @@ runs:
   steps:
     - name: Parse tag filters
       id: parse-tag-filters
-      uses: alphagov/di-github-actions/parse-parameters@5b880e99b78950f38202922aa51e3ccfae9bc13a
-      with:
-        parameters: ${{ inputs.stack-tag-filters }}
-        associative-array: true
+      shell: bash
+      env:
+        PARAMETERS: ${{ inputs.stack-tag-filters }}
+        ASSOCIATIVE_ARRAY: 'true'
+        SCRIPT: ${{ github.action_path }}/../../scripts/parse-parameters.sh
+      run: echo "tag-filters=$($SCRIPT)" >> "$GITHUB_OUTPUT"
 
     - name: Filter stacks
       id: filter-stacks
@@ -38,7 +40,7 @@ runs:
       env:
         THRESHOLD_DAYS: ${{ inputs.threshold-days }}
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
-        STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.parsed-parameters }}
+        STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.tag-filters }}
         ENV_VAR_NAME: ${{ inputs.env-var-name }}
 
     - name: Report stacks found
