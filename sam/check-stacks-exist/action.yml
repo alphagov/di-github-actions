@@ -1,4 +1,4 @@
-name: 'Check SAM stack exists'
+name: 'Check SAM stacks exist'
 description: 'Checks whether the specified AWS SAM stack exists using the AWS credentials configured in the job'
 inputs:
   stack-names:
@@ -18,11 +18,29 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Check stack exists
+    - name: Check stacks exist
       id: check-stacks-exist
       run: ${{ github.action_path }}/check-stacks-exist.sh
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
         SET_ENV_VAR: ${{ inputs.set-env-var }}
+
+    - name: Report results
+      if: ${{ join(steps.check-stacks-exist.outputs.*, '') != null }}
+      shell: bash
+      env:
+        EXISTING_STACKS: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+        MISSING_STACKS: ${{ steps.check-stacks-exist.outputs.missing-stacks }}
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
         VERBOSE: ${{ inputs.verbose == 'true' }}
+      run: |
+        $VERBOSE && step_summary=$GITHUB_STEP_SUMMARY
+        
+        [[ -z $EXISTING_STACKS ]] ||
+          VALUES=$EXISTING_STACKS MESSAGE="Existing stacks" SINGLE_MESSAGE="Stack %s exists" $REPORT |
+          tee "${step_summary:-}"
+        
+        [[ -z $MISSING_STACKS ]] ||
+          VALUES=$MISSING_STACKS MESSAGE="Non-existent stacks" SINGLE_MESSAGE="Stack %s does not exist" $REPORT |
+          tee "${step_summary:-}"

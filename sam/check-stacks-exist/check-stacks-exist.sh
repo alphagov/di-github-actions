@@ -1,40 +1,24 @@
 set -eu
 
+existing_stacks=()
+missing_stacks=()
+
 env_var=${SET_ENV_VAR}
-print_summary=${VERBOSE}
 
 read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
 
-real_stacks=()
-fake_stacks=()
 for stack in "${stacks[@]}"; do
-  aws cloudformation describe-stacks --stack-name "$stack" > /dev/null && real_stacks+=("$stack") || fake_stacks+=("$stack")
+  if aws cloudformation describe-stacks --stack-name "$stack" > /dev/null; then
+    existing_stacks+=("$stack")
+  else
+    missing_stacks+=("$stack")
+  fi
 done
-
-echo "existing-stacks=${real_stacks[*]}" >> "$GITHUB_OUTPUT"
 
 if [[ $env_var ]]; then
   echo "Setting environment variable $env_var..."
-  echo "$env_var=${real_stacks[*]}" >> "$GITHUB_ENV"
+  echo "$env_var=${existing_stacks[*]}" >> "$GITHUB_ENV"
 fi
 
-if [[ ${#real_stacks[@]} -eq 1 ]]; then
-  echo "Stack \`${real_stacks[*]}\` exists" >> "$GITHUB_STEP_SUMMARY"
-elif [[ ${#real_stacks[@]} -gt 1 ]]; then
-  echo "Existing stacks:" >> "$GITHUB_STEP_SUMMARY"
-  for stack in "${real_stacks[@]}"; do
-    echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
-  done
-fi
-
-if [[ ${#fake_stacks[@]} -eq 1 ]]; then
-  echo "Stack \`${fake_stacks[*]}\` does not exist" >> "$GITHUB_STEP_SUMMARY"
-elif [[ ${#fake_stacks[@]} -gt 1 ]]; then
-  echo "Non-existent stacks:" >> "$GITHUB_STEP_SUMMARY"
-  for stack in "${fake_stacks[@]}"; do
-    echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
-  done
-fi
-
-cat "$GITHUB_STEP_SUMMARY"
-$print_summary || rm "$GITHUB_STEP_SUMMARY"
+echo "existing-stacks=${existing_stacks[*]}" >> "$GITHUB_OUTPUT"
+echo "missing-stacks=${missing_stacks[*]}" >> "$GITHUB_OUTPUT"

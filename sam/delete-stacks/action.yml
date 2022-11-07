@@ -24,10 +24,27 @@ runs:
         verbose: true
 
     - name: Delete stacks
-      if: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+      id: delete-stacks
+      if: ${{ steps.check-stacks-exist.outputs.existing-stacks != null }}
       run: ${{ github.action_path }}/delete-stacks.sh
       shell: bash
       env:
         STACK_NAMES: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
         ONLY_FAILED: ${{ inputs.only-if-failed == 'true' }}
         AWS_REGION: ${{ inputs.aws-region }}
+
+    - name: Report results
+      if: ${{ always() && join(steps.delete-stacks.outputs.*, '') != null }}
+      shell: bash
+      env:
+        DELETED_STACKS: ${{ steps.delete-stacks.outputs.deleted-stacks }}
+        FAILED_STACKS: ${{ steps.delete-stacks.outputs.failed-stacks }}
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: |
+        [[ -z $DELETED_STACKS ]] ||
+          VALUES=$DELETED_STACKS MESSAGE="Deleted stacks" SINGLE_MESSAGE="Deleted stack %s" $REPORT |
+          tee "$GITHUB_STEP_SUMMARY"
+        
+        [[ -z $FAILED_STACKS ]] ||
+          VALUES=$FAILED_STACKS MESSAGE="Failed to delete stacks" SINGLE_MESSAGE="Failed to delete stack %s" $REPORT |
+          tee "$GITHUB_STEP_SUMMARY"
