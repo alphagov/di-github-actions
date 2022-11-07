@@ -20,9 +20,13 @@ runs:
   steps:
     - name: Parse parameters
       id: parse-parameters
-      run: ${{ github.action_path }}/parse-params.sh
       shell: bash
       env:
-        PARAMS: ${{ inputs.parameters }}
+        PARAMETERS: ${{ inputs.parameters }}
         ENV_VAR_NAME: ${{ inputs.env-var-name }}
         ASSOCIATIVE_ARRAY: ${{ inputs.associative-array == 'true' }}
+        PARSE: ${{ github.action_path }}/../scripts/parse-parameters.sh
+      run: |
+        parameters=$($PARSE)
+        echo "Parsed ${#parameters[@]} parameters"
+        echo "parsed-parameters=${parameters[*]}" >> "$GITHUB_OUTPUT"
