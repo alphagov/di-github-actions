@@ -34,15 +34,20 @@ runs:
   steps:
     - name: Transform branch name
       id: transform-branch-name
-      run: ${{ github.action_path }}/transform-branch-name.sh
       shell: bash
       env:
         BRANCH_NAME: ${{ inputs.branch-name }}
-        DOWNCASE_NAME: ${{ inputs.downcase == 'true' }}
-        UNDERSCORES_TO_HYPHENS: ${{ inputs.underscores-to-hyphens == 'true' }}
-        TOTAL_LENGTH_LIMIT: ${{ inputs.length-limit }}
+        DOWNCASE: ${{ inputs.downcase == 'true' }}
+        LENGTH_LIMIT: ${{ inputs.length-limit }}
+        REPLACE_UNDERSCORES: ${{ inputs.underscores-to-hyphens == 'true' }}
         PREFIX: ${{ inputs.prefix }}
-        USAGE: ${{ inputs.usage }}
+        MESSAGE: ${{ inputs.usage }}
+        TRANSFORM: ${{ github.action_path }}/../scripts/transform-branch-name.sh
+      run: |
+        echo "Transforming $BRANCH_NAME..."
+        pretty_branch_name=$($TRANSFORM)
+        echo "pretty-branch-name=$pretty_branch_name" >> "$GITHUB_OUTPUT"
+        echo "${MESSAGE:-Pretty branch name}: \`$pretty_branch_name\`" | tee "$GITHUB_STEP_SUMMARY"
 
     - name: Set environment variable
       if: ${{ inputs.set-env-var != null }}
