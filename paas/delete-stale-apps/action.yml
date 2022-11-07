@@ -9,7 +9,24 @@ runs:
   using: composite
   steps:
     - name: Clean up stale deployments
+      id: delete-deployments
       run: ${{ github.action_path }}/delete-stale-apps.sh
       shell: bash
       env:
         THRESHOLD_DAYS: ${{ inputs.age-threshold-days }}
+
+    - name: Report results
+      if: ${{ always() && join(steps.delete-deployments.outputs.*, '') != null }}
+      shell: bash
+      env:
+        DELETED_APPS: ${{ steps.delete-deployments.outputs.deleted-apps }}
+        FAILED_APPS: ${{ steps.delete-deployments.outputs.failed-apps }}
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: |
+        [[ -z $DELETED_APPS ]] ||
+          VALUES=$DELETED_APPS MESSAGE="Deleted apps" SINGLE_MESSAGE="Deleted app %s" $REPORT |
+          tee -a "$GITHUB_STEP_SUMMARY"
+
+        [[ -z $FAILED_APPS ]] ||
+          VALUES=$FAILED_APPS MESSAGE="Failed to delete apps" SINGLE_MESSAGE="Failed to delete app %s" $REPORT |
+          tee -a "$GITHUB_STEP_SUMMARY"

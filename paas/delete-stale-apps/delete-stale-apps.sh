@@ -1,8 +1,11 @@
+set -eu
+
+deleted_apps=()
+failed_apps=()
+
 cut_off_date=$(date -d "$THRESHOLD_DAYS days ago" +%Y-%m-%d)
 echo "Cut off date: $cut_off_date"
 
-failed_apps=()
-deleted_apps=()
 for app in $(cf apps | awk 'NR>3 {print $1}'); do
   last_upload_date=$(cf events "$app" | grep audit.app.package.upload | awk 'NR==1 {print $1}') || true
   echo "$app | last uploaded: $last_upload_date"
@@ -12,22 +15,7 @@ for app in $(cf apps | awk 'NR>3 {print $1}'); do
   fi
 done
 
-if [[ ${#deleted_apps[@]} -eq 1 ]]; then
-  echo "Deleted app \`${deleted_apps[*]}\`" >> "$GITHUB_STEP_SUMMARY"
-elif [[ ${#deleted_apps[@]} -gt 1 ]]; then
-  echo "Deleted apps:" >> "$GITHUB_STEP_SUMMARY"
-  for app in "${deleted_apps[@]}"; do
-    echo "  - $app" >> "$GITHUB_STEP_SUMMARY"
-  done
-fi
+echo "deleted-apps=${deleted_apps[*]}" >> "$GITHUB_OUTPUT"
+echo "failed-apps=${failed_apps[*]}" >> "$GITHUB_OUTPUT"
 
-if [[ ${#failed_apps[@]} -eq 1 ]]; then
-  echo "Failed to delete app \`${failed_apps[*]}\`" >> "$GITHUB_STEP_SUMMARY"
-elif [[ ${#failed_apps[@]} -gt 1 ]]; then
-  echo "Failed to delete app:" >> "$GITHUB_STEP_SUMMARY"
-  for app in "${failed_apps[@]}"; do
-    echo "  - $app" >> "$GITHUB_STEP_SUMMARY"
-  done
-fi
-
-[[ ${#failed_apps[@]} -gt 1 ]] && exit 1
+[[ ${#failed_apps[@]} -eq 0 ]] || exit 1
