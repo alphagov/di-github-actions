@@ -55,7 +55,6 @@ runs:
   using: composite
   steps:
     - name: Assume AWS Role
-      id: assume-aws-role
       if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v1-node16
       with:
@@ -85,27 +84,20 @@ runs:
         image-tags: ${{ inputs.image-tags }}
 
     - name: Delete previous image version
-      id: delete-previous-version
       if: ${{ inputs.immutable-tags == 'true' && steps.get-previous-version.outputs.image-exists == 'true' }}
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_DIGEST: ${{ steps.get-previous-version.outputs.image-digest }}
-        OUTPUT_FILE: ${{ runner.temp }}/delete-images.output
+        REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-file.sh
+        TITLE: Deleted previous image version
+        LANGUAGE: shell
       run: |
         echo "Deleting previous image version..."
         aws ecr batch-delete-image \
           --repository-name "$REPOSITORY" \
           --image-ids imageDigest="$IMAGE_DIGEST" \
-          --output text | tee "$OUTPUT_FILE"
-
-    - name: Report deleted previous image version
-      if: ${{ steps.delete-previous-version.outcome == 'success' }}
-      uses: alphagov/di-github-actions/report-step-result@28a6bf96563343af503eac737bff50d8e93505ff
-      with:
-        file-path: ${{ runner.temp }}/delete-images.output
-        title: Deleted previous image version
-        language: shell
+          --output text | $REPORT | tee "$GITHUB_STEP_SUMMARY" 
 
     - name: Build Docker image
       id: build-image

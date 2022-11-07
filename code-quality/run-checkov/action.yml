@@ -64,14 +64,14 @@ runs:
         FILES: ${{ runner.temp }}/pr-files
       run: |
         files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-        [[ $DIR ]] && files=$(grep "$DIR" <<< "$files" || true)
+        [[ -z $DIR ]] || files=$(grep -E --regexp="^.*\/${DIR}\/.*$" <<< "$files") || true
+        
         if [[ -n $files ]]; then
           echo "$files" >> "$FILES"
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Run Checkov on a pull request
-      id: run-checkov-pr
       if: ${{ steps.check-merge-commit.outputs.merging == 'true' && steps.get-pr-files.outputs.files != null }}
       shell: bash
       env:
@@ -85,7 +85,6 @@ runs:
         checkov --quiet "${files[@]}" ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee "$OUTPUT_FILE"
 
     - name: Run Checkov on a directory
-      id: run-checkov-dir
       if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path != null }}
       shell: bash
       env:
@@ -96,7 +95,6 @@ runs:
       run: checkov --quiet -d "$DIR" ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee "$OUTPUT_FILE"
 
     - name: Run Checkov on the repo
-      id: run-checkov-repo
       if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path == null }}
       shell: bash
       env:
@@ -104,11 +102,14 @@ runs:
         SKIP_FRAMEWORKS: ${{ steps.checkov-options.outputs.skip-frameworks }}
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
       run: |
-        checkov --quiet -d . ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee "$OUTPUT_FILE"
+        checkov --quiet -d . ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee -a "$OUTPUT_FILE"
         [[ -d .github ]] && checkov --quiet -d .github ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee -a "$OUTPUT_FILE"
 
     - name: Report Checkov result
       if: ${{ failure() }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/checkov.output
+      shell: bash
+      env:
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
+        FILE: ${{ runner.temp }}/checkov.output
+        CODE_BLOCK: 'true'
+      run: $REPORT >> "$GITHUB_STEP_SUMMARY"
