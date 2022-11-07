@@ -20,10 +20,14 @@ runs:
   steps:
     - name: Check stacks exist
       id: check-stacks-exist
-      run: ${{ github.action_path }}/check-stacks-exist.sh
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
+        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/ecr/check-stacks-exist.sh
+      run: |
+        declare -A stacks && eval "stacks=($($CHECK_STACKS))"
+        echo "existing-stacks=${stacks[existing-stacks]}" >> "$GITHUB_OUTPUT"
+        echo "missing-stacks=${stacks[missing-stacks]}" >> "$GITHUB_OUTPUT"
 
     - name: Set environment variable
       if: ${{ inputs.set-env-var != null && steps.check-stacks-exist.outputs.existing-stacks != null }}
