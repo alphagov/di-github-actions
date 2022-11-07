@@ -18,21 +18,16 @@ runs:
   using: composite
   steps:
     - name: Get image digests
-      id: get-image-digests
-      uses: alphagov/di-github-actions/aws/ecr/get-image-digests@e87b9378ea8cb6a6debdd90eb1097759d79ea919
-      with:
-        repository: ${{ inputs.repository }}
-        image-tags: ${{ inputs.image-tags }}
-
-    - name: Check image exists
       id: check-image-exists
       shell: bash
       env:
+        REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
-        IMAGE_DIGESTS: ${{ steps.get-image-digests.outputs.image-digests }}
+        IMAGE_DIGESTS: ${{ github.action_path }}/../../../scripts/aws/ecr/get-image-digests.sh
       run: |
-        read -ra images <<< "$IMAGE_DIGESTS"
-        
+        image_digests=$($IMAGE_DIGESTS)
+        read -ra images <<< "$image_digests"
+
         if [[ ${#images[@]} -gt 1 ]]; then
           echo "::error::Expected only one image with tags '$IMAGE_TAGS' but got multiple: ${images[*]}"
           exit 1
@@ -50,6 +45,5 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
       run: |
         read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
-        [[ ${#tags[@]} -gt 1 ]] && plural=s
-        echo "Image with tag${plural:-} \`${tags[*]}\` exists in repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY" 
-        cat "$GITHUB_STEP_SUMMARY"
+        [[ ${#tags[@]} -gt 1 ]] && plural=true
+        echo "Image with tag${plural:+s} \`${tags[*]}\` exists in repository \`$REPOSITORY\`" | tee "$GITHUB_STEP_SUMMARY"

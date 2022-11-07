@@ -147,7 +147,7 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
       run: |
         mapfile -t tags < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Tag}}')
-        mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | uniq)
+        mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | sort -u)
         
         if [[ ${#digests[@]} -ne 1 ]]; then
           echo "Expected one image digest for image $REGISTRY/$REPOSITORY but got \`${digests[*]}\`"
@@ -155,8 +155,8 @@ runs:
         fi
         
         digest=${digests[*]}
-        [[ ${#tags[@]} -gt 1 ]] && plural=true
-        [[ ${#tags[@]} -gt 0 ]] && tag_msg="tag${plural:+s} \`${tags[*]}\`"
+        [[ ${#tags[@]} -le 1 ]] || plural=true
+        [[ ${#tags[@]} -le 0 ]] || tag_msg="tag${plural:+s} \`${tags[*]}\`"
         
         echo "Pushed image with ${tag_msg:-digest \`$digest\`}" >> "$GITHUB_STEP_SUMMARY"
         echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
