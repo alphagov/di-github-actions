@@ -20,15 +20,5 @@ runs:
       env:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
-      run: |
-        read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
-        tags=("${tags[@]/#/\'}") && tags=("${tags[@]/%/\'}")
-        tag_list=$(IFS=","; echo "[${tags[*]}]")
-        
-        image_list=$(aws ecr list-images \
-          --repository-name "$REPOSITORY" \
-          --query "imageIds[?contains($tag_list, imageTag)].[imageDigest]" \
-          --output text | uniq)
-        
-        mapfile -t images <<< "$image_list"
-        echo "image-digests=${images[*]}" >> "$GITHUB_OUTPUT"
+        IMAGE_DIGESTS: ${{ github.action_path }}/../../../scripts/aws/ecr/get-image-digests.sh
+      run: echo "image-digests=$($IMAGE_DIGESTS)" >> "$GITHUB_OUTPUT"

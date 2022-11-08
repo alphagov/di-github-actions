@@ -1,0 +1,39 @@
+name: 'Clean up stale task definitions'
+description: 'Deregister ECS task definitions which point to ECR images that no longer exist'
+inputs:
+  container:
+    description: 'Specifies the container definition containing the image to check, otherwise pick first container'
+    required: false
+  family:
+    description: 'ECS task definition family to clean up'
+    required: false
+  registry:
+    description: 'Registry ID to query for images'
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Clean up stale task definitions
+      id: deregister-task-definitions
+      shell: bash
+      run: ${{ github.action_path }}/deregister-stale-task-definitions.sh
+      env:
+        ECS_FAMILY: ${{ inputs.family }}
+        CONTAINER: ${{ inputs.container }}
+        REGISTRY: ${{ inputs.registry }}
+
+    - name: Report results
+      if: ${{ always() && join(steps.deregister-task-definitions.outputs.*, '') != null }}
+      shell: bash
+      env:
+        DEREGISTERED_DEFINITIONS: ${{ steps.deregister-task-definitions.outputs.deregistered-definitions }}
+        FAILED_DEFINITIONS: ${{ steps.deregister-task-definitions.outputs.failed-definitions }}
+        REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-list.sh
+      run: |
+        [[ -z $DEREGISTERED_DEFINITIONS ]] ||
+          VALUES=$DEREGISTERED_DEFINITIONS MESSAGE="Deregistered task definitions" \
+            SINGLE_MESSAGE="Deregistered task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        
+        [[ -z $FAILED_DEFINITIONS ]] ||
+          VALUES=$FAILED_DEFINITIONS MESSAGE="Failed to deregister task definitions" \
+            SINGLE_MESSAGE="Failed to deregister task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"

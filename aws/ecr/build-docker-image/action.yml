@@ -71,7 +71,7 @@ runs:
     - name: Check image exists
       id: check-image-exists
       if: ${{ inputs.immutable-tags == 'true' && inputs.image-version != null }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@525bcf25919855cb5909e2d3c7b341e2e0a0aa6e
       with:
         repository: ${{ inputs.REPOSITORY }}
         image-tags: ${{ inputs.image-version }}
@@ -79,7 +79,7 @@ runs:
     - name: Get previous image version
       id: get-previous-version
       if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-exists == 'false' }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@28a6bf96563343af503eac737bff50d8e93505ff
+      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@525bcf25919855cb5909e2d3c7b341e2e0a0aa6e
       with:
         repository: ${{ inputs.repository }}
         image-tags: ${{ inputs.image-tags }}
@@ -147,7 +147,7 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
       run: |
         mapfile -t tags < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Tag}}')
-        mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | uniq)
+        mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | sort -u)
         
         if [[ ${#digests[@]} -ne 1 ]]; then
           echo "Expected one image digest for image $REGISTRY/$REPOSITORY but got \`${digests[*]}\`"
@@ -155,8 +155,8 @@ runs:
         fi
         
         digest=${digests[*]}
-        [[ ${#tags[@]} -gt 1 ]] && plural=true
-        [[ ${#tags[@]} -gt 0 ]] && tag_msg="tag${plural:+s} \`${tags[*]}\`"
+        [[ ${#tags[@]} -le 1 ]] || plural=true
+        [[ ${#tags[@]} -le 0 ]] || tag_msg="tag${plural:+s} \`${tags[*]}\`"
         
         echo "Pushed image with ${tag_msg:-digest \`$digest\`}" >> "$GITHUB_STEP_SUMMARY"
         echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
