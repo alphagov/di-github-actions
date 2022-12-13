@@ -114,9 +114,9 @@ jobs:
       - name: Check correct variable substitution file created
         run: |
           cat << 'EOF' > expected_file
-          memory: unlimited
-          deployment: continuous
           app: test
+          deployment: continuous
+          memory: unlimited
           EOF
           
-          [[ $(cat "$VARS_FILE") == $(cat expected_file) ]]
+          cat "$VARS_FILE" | sort | diff expected_file -
