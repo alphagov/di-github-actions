@@ -12,6 +12,8 @@ jobs:
 
       - name: Run Checkov
         uses: ./code-quality/run-checkov
+        with:
+          skip-checks: CKV_SECRET_6
 
   check-shell-scripts:
     name: Check shell scripts
