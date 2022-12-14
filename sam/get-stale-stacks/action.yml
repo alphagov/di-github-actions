@@ -10,7 +10,7 @@ inputs:
     required: false
   stack-tag-filters:
     description: 'Filter stacks by tags, encoded as name=value pairs separated by newlines or "|"'
-    required: false
+    required: true
   env-var-name:
     description: 'Accumulate stack names in the environment variable with the specified name, persisted in the job'
     required: false
@@ -40,4 +40,15 @@ runs:
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
         STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.parsed-parameters }}
         ENV_VAR_NAME: ${{ inputs.env-var-name }}
-        STACKS_DESCRIPTION: ${{ inputs.description }}
+
+    - name: Report results
+      shell: bash
+      env:
+        DESCRIPTION: ${{ inputs.description }}
+        VALUES: ${{ steps.filter-stacks.outputs.stack-names }}
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
+      run: |
+        ([[ $VALUES ]] &&
+          MESSAGE="Stale ${DESCRIPTION:+$DESCRIPTION }stacks" $REPORT ||
+          echo "There are no stale ${DESCRIPTION:+$DESCRIPTION }stacks") |
+          tee "$GITHUB_STEP_SUMMARY"

@@ -3,7 +3,6 @@ set -eu
 threshold=${THRESHOLD_DAYS}
 name_filter=${STACK_NAME_FILTER}
 env_var=${ENV_VAR_NAME}
-description=${STACKS_DESCRIPTION}
 
 declare -A tag_filters
 eval "tag_filters=(${STACK_TAG_FILTERS})"
@@ -28,7 +27,6 @@ stack_names=$(jq -r '.StackName' <<< "$stacks")
 [[ $name_filter ]] && stack_names=$(grep "$name_filter" <<< "$stack_names")
 mapfile -t stack_names <<< "$stack_names"
 
-stale_stacks=()
 tag_names=("${!tag_filters[@]}")
 for stack in "${stack_names[@]}"; do
   stack_info=$(jq --arg name "$stack" 'select(.StackName == $name)' <<< "$stacks")
@@ -49,21 +47,10 @@ for stack in "${stack_names[@]}"; do
   echo "$stack | last updated: $last_updated_date"
 done
 
-echo "stack-names=${stale_stacks[*]}" >> "$GITHUB_OUTPUT"
-
 if [[ $env_var ]]; then
   all_stacks=("${imported_stacks[@]}" "${stale_stacks[@]}")
   echo "Setting environment variable $env_var..."
   echo "$env_var=${all_stacks[*]}" >> "$GITHUB_ENV"
 fi
 
-if [[ ${#stale_stacks[@]} -gt 0 ]]; then
-  echo "Stale ${description:+$description }stacks:" >> "$GITHUB_STEP_SUMMARY"
-  for stack in "${stale_stacks[@]}"; do
-    echo "  - $stack" >> "$GITHUB_STEP_SUMMARY"
-  done
-else
-  echo "There are no stale ${description:+$description }stacks" >> "$GITHUB_STEP_SUMMARY"
-fi
-
-cat "$GITHUB_STEP_SUMMARY"
+echo "stack-names=${stale_stacks[*]}" >> "$GITHUB_OUTPUT"
