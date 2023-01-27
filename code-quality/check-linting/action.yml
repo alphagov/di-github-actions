@@ -9,6 +9,10 @@ inputs:
     description: 'Whether to run ESLint'
     required: false
     default: 'true'
+  run-cfn-lint:
+    description: 'Whether to run AWS CloudFormation Linter'
+    required: false
+    default: 'true'
   error-on-warnings:
     description: 'Treat warnings as errors'
     required: false
@@ -31,15 +35,28 @@ runs:
         fetch-depth: ${{ steps.check-merge-commit.outputs.fetch-depth }}
 
     - name: Set up Node
+      if: ${{ inputs.run-prettier == 'true' || inputs.run-eslint == 'true' }}
       uses: actions/setup-node@v3
       with:
         cache: npm
 
+    - name: Set up Python
+      if: ${{ inputs.run-cfn-lint == 'true' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        cache-dependency-path: ./.github/workflows
+        cache: pip
+
     - name: Install linting tools
       shell: bash
+      env:
+        NODE_TOOLS: ${{ inputs.run-prettier == 'true' || inputs.run-eslint == 'true' }}
+        PYTHON_TOOLS: ${{ inputs.run-cfn-lint == 'true' }}
       run: |
         echo "::group::Install packages"
-        npm install prettier eslint
+        $NODE_TOOLS && npm install prettier eslint
+        $PYTHON_TOOLS && pip install cfn-lint
         echo "::endgroup::"
 
     - name: Get files to check
@@ -90,3 +107,29 @@ runs:
         
         npx eslint "${max_warnings:-}" "${es_files[@]}" | tee "$OUTPUT" ||
           FILE=$OUTPUT TITLE=ESLint CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Run cfn-lint
+      if: ${{ always() && inputs.run-cfn-lint == 'true' && (env.FILES != null || env.MERGING == 'false') }}
+      shell: bash
+      env:
+        STRICT: ${{ inputs.error-on-warnings == 'true' }}
+        OUTPUT: ${{ runner.temp }}/cfn-lint.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
+      run: |
+        echo ":: Running cfn-lint"
+        $STRICT && error_on_warnings=true
+        
+        if $MERGING; then
+          files="$FILES"
+        else
+          shopt -s globstar dotglob extglob nullglob
+          files=$(echo !(.github|node_modules|.aws-sam)/!(node_modules|.aws-sam)/*.@(yaml|yml))
+        fi
+        
+        read -ra files <<< "$files"
+        filtered_files=$(grep -El --regexp='^AWSTemplateFormatVersion: "?[[:digit:]-]+"?' "${files[@]}") ||
+          (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+        
+        mapfile -t files <<< "$filtered_files"
+        cfn-lint ${error_on_warnings:+--non-zero-exit-code warning} "${files[@]}" | tee "$OUTPUT" ||
+          (FILE=$OUTPUT TITLE="CloudFormation linter" CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)
