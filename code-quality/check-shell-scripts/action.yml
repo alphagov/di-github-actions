@@ -43,67 +43,45 @@ runs:
         echo "::endgroup::"
 
     - name: Get shell scripts to check
-      id: get-scripts
       shell: bash
       env:
         TYPES: ${{ inputs.file-extensions }}
       run: |
-        types="$(echo -n "$TYPES" | tr ' ' '\n')"
+        read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
         
         if $MERGING; then
-          mapfile -t scripts < <(git diff --name-only --diff-filter=d HEAD^...HEAD | grep -F "$types")
+          files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
+          filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
+          mapfile -t files < <(grep -E --regexp="$filetype_regex" <<< "$files")
+          scripts="${files[*]}"
         else
-          shopt -s globstar dotglob extglob
-          mapfile -t types <<< "$types"
+          shopt -s globstar dotglob extglob nullglob
           scripts=$(IFS="|"; eval echo "**/*@(${types[*]})")
         fi
         
-        echo "SCRIPTS=${scripts[*]}" >> "$GITHUB_ENV"
+        echo "SCRIPTS=$scripts" >> "$GITHUB_ENV"
 
     - name: Run shellcheck
-      id: run-shellcheck
-      if: ${{ env.SCRIPTS && inputs.run-shellcheck == 'true' }}
+      if: ${{ env.SCRIPTS != null && inputs.run-shellcheck == 'true' }}
       shell: bash
       env:
         DIALECT: ${{ inputs.shell }}
-        OUTPUT_FILE: ${{ runner.temp }}/shellcheck.output
+        OUTPUT: ${{ runner.temp }}/shellcheck.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
       run: |
+        echo ":: Running shellcheck"
         read -ra scripts <<< "$SCRIPTS"
-        shellcheck ${DIALECT:+--shell=$DIALECT} "${scripts[@]}" | tee "$OUTPUT_FILE"
+        shellcheck ${DIALECT:+--shell=$DIALECT} "${scripts[@]}" | tee "$OUTPUT" ||
+          FILE=$OUTPUT TITLE=Shellcheck LANGUAGE=shell $REPORT >> "$GITHUB_STEP_SUMMARY"
 
     - name: Run shfmt
-      id: run-shfmt
-      if: ${{ ((success() && env.SCRIPTS) || (failure() && steps.run-shellcheck.outcome == 'failure')) && inputs.run-shfmt == 'true' }}
+      if: ${{ always() && env.SCRIPTS != null && inputs.run-shfmt == 'true' }}
       shell: bash
       env:
-        OUTPUT_FILE: ${{ runner.temp }}/shfmt.output
+        OUTPUT: ${{ runner.temp }}/shfmt.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
       run: |
+        echo ":: Running shfmt"
         read -ra scripts <<< "$SCRIPTS"
-        shfmt -d -sr -i 2 "${scripts[@]}" | tee "$OUTPUT_FILE"
-
-    - name: Write shellcheck results
-      id: report-shellcheck
-      if: ${{ failure() && steps.run-shellcheck.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/shellcheck.output
-        output-file-path: ${{ runner.temp }}/checks.report
-        title: Shellcheck
-        language: shell
-
-    - name: Write shfmt results
-      id: report-shfmt
-      if: ${{ failure() && steps.run-shfmt.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/shfmt.output
-        output-file-path: ${{ runner.temp }}/checks.report
-        title: Shell formatting
-        language: diff
-
-    - name: Report results
-      if: ${{ failure() && (steps.report-shellcheck.outcome == 'success' || steps.report-shfmt.outcome == 'success') }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/checks.report
-        code-block: false
+        shfmt -d -sr -i 2 "${scripts[@]}" | tee "$OUTPUT" ||
+          FILE=$OUTPUT TITLE="Shell formatting" LANGUAGE=diff $REPORT >> "$GITHUB_STEP_SUMMARY"

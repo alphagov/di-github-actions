@@ -17,15 +17,13 @@ runs:
   using: composite
   steps:
     - name: Check if merge commit
-      id: check-merge-commit
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
       run: |
-        merging=false
         [[ $EVENT == pull_request ]] && merging=true && fetch_depth=2
         echo "fetch-depth=${fetch_depth:-}" >> "$GITHUB_OUTPUT"
-        echo "merging=$merging" >> "$GITHUB_OUTPUT"
+        echo "MERGING=${merging:-false}" >> "$GITHUB_ENV"
 
     - name: Pull repository
       uses: actions/checkout@v3
@@ -45,80 +43,50 @@ runs:
         echo "::endgroup::"
 
     - name: Get files to check
-      id: get-files
-      if: ${{ steps.check-merge-commit.outputs.merging == 'true' }}
+      if: ${{ env.MERGING == 'true' }}
       shell: bash
       run: |
         mapfile -t files < <(git diff --name-only --diff-filter=d HEAD^...HEAD)
-        echo "files=${files[*]}" >> "$GITHUB_OUTPUT"
+        echo "FILES=${files[*]}" >> "$GITHUB_ENV"
 
     - name: Run Prettier
-      id: run-prettier
-      if: ${{ inputs.run-prettier == 'true' }}
+      if: ${{ inputs.run-prettier == 'true' && (env.FILES != null || env.MERGING == 'false') }}
       shell: bash
       env:
-        FILES: ${{ steps.get-files.outputs.files }}
-        OUTPUT_FILE: ${{ runner.temp }}/prettier.output
+        OUTPUT: ${{ runner.temp }}/prettier.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
       run: |
-        echo "::notice::Running Prettier..."
-        read -ra files <<< "$FILES"
-        [[ ${#files[@]} -eq 0 ]] && files=(.)
-        npx prettier --ignore-unknown --check "${files[@]}" 2>&1 | tee "$OUTPUT_FILE"        
+        echo ":: Running Prettier"
+        $MERGING && read -ra files <<< "$FILES" || files=(.)
+        
+        npx prettier --ignore-unknown --check "${files[@]}" 2>&1 | tee "$OUTPUT" ||
+          FILE=$OUTPUT TITLE=Prettier CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
 
     - name: Run ESLint
-      id: run-eslint
-      if: ${{ (success() || failure() && steps.run-prettier.outcome == 'failure') && inputs.run-eslint == 'true' }}
+      if: ${{ always() && inputs.run-eslint == 'true' && (env.FILES != null || env.MERGING == 'false') }}
       shell: bash
       env:
         TYPES: .jsx .js .ts
-        FILES: ${{ steps.get-files.outputs.files }}
         STRICT: ${{ inputs.error-on-warnings == 'true' }}
-        OUTPUT_FILE: ${{ runner.temp }}/eslint.output
+        OUTPUT: ${{ runner.temp }}/eslint.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
       run: |
-        echo "::notice::Running ESLint..."
+        echo ":: Running ESLint"
+        $STRICT && max_warnings="--max-warnings=0"
+        $MERGING || es_files=(.)
         
-        if $STRICT; then
-          max_warnings="--max-warnings=0"
-        fi
-        
-        if [[ -n $FILES ]]; then
+        if $MERGING; then
           files="$(tr ' ' '\n' <<< "$FILES")"
           read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
           filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
         
-          if es_files="$(grep -E --regexp="$filetype_regex" <<< "$files")"; then
-            mapfile -t es_files <<< "$es_files"
+          if filtered_files="$(grep -E --regexp="$filetype_regex" <<< "$files")"; then
+            mapfile -t es_files <<< "$filtered_files"
           else
             echo "No files to check"
             exit 0
           fi
-        else
-          es_files=(.)
         fi
         
-        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT_FILE"  
-
-    - name: Write Prettier results
-      id: report-prettier
-      if: ${{ failure() && steps.run-prettier.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/prettier.output
-        output-file-path: ${{ runner.temp }}/checks.report
-        title: Prettier
-
-    - name: Write ESLint results
-      id: report-eslint
-      if: ${{ failure() && steps.run-eslint.outcome == 'failure' }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/eslint.output
-        output-file-path: ${{ runner.temp }}/checks.report
-        title: ESLint
-
-    - name: Report results
-      if: ${{ (failure() && steps.report-prettier.outcome == 'success') || steps.report-eslint.outcome == 'success' }}
-      uses: alphagov/di-github-actions/report-step-result@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        file-path: ${{ runner.temp }}/checks.report
-        code-block: false
+        npx eslint "${max_warnings:-}" "${es_files[@]}" | tee "$OUTPUT" ||
+          FILE=$OUTPUT TITLE=ESLint CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
