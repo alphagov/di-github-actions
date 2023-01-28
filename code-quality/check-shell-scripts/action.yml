@@ -52,8 +52,11 @@ runs:
         if $MERGING; then
           files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
           filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
-          mapfile -t files < <(grep -E --regexp="$filetype_regex" <<< "$files")
-          scripts="${files[*]}"
+
+          filtered_files=$(grep -E --regexp="$filetype_regex" <<< "$files") ||
+            (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+
+          scripts=$(tr '\n' ' ' <<< "$filtered_files")
         else
           shopt -s globstar dotglob extglob nullglob
           scripts=$(IFS="|"; eval echo "**/*@(${types[*]})")
@@ -72,7 +75,7 @@ runs:
         echo ":: Running shellcheck"
         read -ra scripts <<< "$SCRIPTS"
         shellcheck ${DIALECT:+--shell=$DIALECT} "${scripts[@]}" | tee "$OUTPUT" ||
-          FILE=$OUTPUT TITLE=Shellcheck LANGUAGE=shell $REPORT >> "$GITHUB_STEP_SUMMARY"
+          (FILE=$OUTPUT TITLE=Shellcheck LANGUAGE=shell $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)
 
     - name: Run shfmt
       if: ${{ always() && env.SCRIPTS != null && inputs.run-shfmt == 'true' }}
@@ -84,4 +87,4 @@ runs:
         echo ":: Running shfmt"
         read -ra scripts <<< "$SCRIPTS"
         shfmt -d -sr -i 2 "${scripts[@]}" | tee "$OUTPUT" ||
-          FILE=$OUTPUT TITLE="Shell formatting" LANGUAGE=diff $REPORT >> "$GITHUB_STEP_SUMMARY"
+          (FILE=$OUTPUT TITLE="Shell formatting" LANGUAGE=diff $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)

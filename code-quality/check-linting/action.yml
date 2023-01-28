@@ -21,6 +21,7 @@ runs:
   using: composite
   steps:
     - name: Check if merge commit
+      id: check-merge-commit
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
@@ -63,8 +64,8 @@ runs:
       if: ${{ env.MERGING == 'true' }}
       shell: bash
       run: |
-        mapfile -t files < <(git diff --name-only --diff-filter=d HEAD^...HEAD)
-        echo "FILES=${files[*]}" >> "$GITHUB_ENV"
+        files=$(git diff --name-only --diff-filter=d HEAD^...HEAD | tr '\n' ' ')
+        echo "FILES=$files" >> "$GITHUB_ENV"
 
     - name: Run Prettier
       if: ${{ inputs.run-prettier == 'true' && (env.FILES != null || env.MERGING == 'false') }}
@@ -77,7 +78,7 @@ runs:
         $MERGING && read -ra files <<< "$FILES" || files=(.)
         
         npx prettier --ignore-unknown --check "${files[@]}" 2>&1 | tee "$OUTPUT" ||
-          FILE=$OUTPUT TITLE=Prettier CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
+          (FILE=$OUTPUT TITLE=Prettier CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)
 
     - name: Run ESLint
       if: ${{ always() && inputs.run-eslint == 'true' && (env.FILES != null || env.MERGING == 'false') }}
@@ -97,16 +98,14 @@ runs:
           read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
           filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
         
-          if filtered_files="$(grep -E --regexp="$filetype_regex" <<< "$files")"; then
-            mapfile -t es_files <<< "$filtered_files"
-          else
-            echo "No files to check"
-            exit 0
-          fi
+          filtered_files="$(grep -E --regexp="$filetype_regex" <<< "$files")" ||
+            (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+        
+          mapfile -t es_files <<< "$filtered_files"
         fi
         
-        npx eslint "${max_warnings:-}" "${es_files[@]}" | tee "$OUTPUT" ||
-          FILE=$OUTPUT TITLE=ESLint CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
+        npx eslint ${max_warnings:-} "${es_files[@]}" | tee "$OUTPUT" ||
+          (FILE=$OUTPUT TITLE=ESLint CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)
 
     - name: Run cfn-lint
       if: ${{ always() && inputs.run-cfn-lint == 'true' && (env.FILES != null || env.MERGING == 'false') }}
