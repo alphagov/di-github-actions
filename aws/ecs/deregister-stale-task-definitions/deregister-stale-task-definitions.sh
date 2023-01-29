@@ -1,5 +1,9 @@
 set -eu
 
+: "${ECS_FAMILY}"
+: "${CONTAINER}"
+: "${REGISTRY:-}"
+
 deregistered_definitions=()
 failed_definitions=()
 
