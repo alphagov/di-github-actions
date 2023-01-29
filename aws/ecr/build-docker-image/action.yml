@@ -1,35 +1,35 @@
-name: 'Build Docker image'
-description: 'Build and push a Docker image to an ECR repo'
+name: "Build Docker image"
+description: "Build and push a Docker image to an ECR repo"
 inputs:
   aws-role-arn:
-    description: 'ARN of AWS role to assume when authenticating to ECR'
+    description: "ARN of AWS role to assume when authenticating to ECR"
     required: false
   aws-region:
-    description: 'AWS region to use'
+    description: "AWS region to use"
     required: false
     default: eu-west-2
   aws-session-name:
-    description: 'Override the default AWS session name'
+    description: "Override the default AWS session name"
     required: false
   registry:
-    description: 'Registry which contains the specified repository'
+    description: "Registry which contains the specified repository"
     required: false
   repository:
-    description: 'ECR repository name'
+    description: "ECR repository name"
     required: true
   image-version:
-    description: 'A unique version identifier to be used as an image tag'
+    description: "A unique version identifier to be used as an image tag"
     required: false
     default: latest
   image-tags:
-    description: 'A list list additional tags to apply to the image, delimited by spaces or newlines'
+    description: "A list list additional tags to apply to the image, delimited by spaces or newlines"
     required: false
   immutable-tags:
-    description: 'Whether the repository is immutable (tags cannot be overwritten)'
+    description: "Whether the repository is immutable (tags cannot be overwritten)"
     required: false
-    default: 'true'
+    default: "true"
   dockerfile-path:
-    description: 'Path to the Dockerfile to use'
+    description: "Path to the Dockerfile to use"
     required: false
   build-path:
     description: "Path to the directory to build"
@@ -51,6 +51,9 @@ outputs:
   image-tags:
     description: "Pass through the additional tags applied to the Docker image"
     value: ${{ inputs.image-tags }}
+  image-uri:
+    description: "Image URI in the format <registry>/<repository>@<digest>"
+    value: ${{ steps.set-image-uri.outputs.image-uri }}
 runs:
   using: composite
   steps:
@@ -70,38 +73,41 @@ runs:
     - name: Check image exists
       id: check-image-exists
       if: ${{ inputs.immutable-tags == 'true' && inputs.image-version != null }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@525bcf25919855cb5909e2d3c7b341e2e0a0aa6e
-      with:
-        repository: ${{ inputs.REPOSITORY }}
-        image-tags: ${{ inputs.image-version }}
-
-    - name: Get previous image version
-      id: get-previous-version
-      if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-exists == 'false' }}
-      uses: alphagov/di-github-actions/aws/ecr/check-image-exists@525bcf25919855cb5909e2d3c7b341e2e0a0aa6e
-      with:
-        repository: ${{ inputs.repository }}
-        image-tags: ${{ inputs.image-tags }}
-
-    - name: Delete previous image version
-      if: ${{ inputs.immutable-tags == 'true' && steps.get-previous-version.outputs.image-exists == 'true' }}
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}
-        IMAGE_DIGEST: ${{ steps.get-previous-version.outputs.image-digest }}
+        IMAGE_TAGS: ${{ inputs.image-version }}
+        CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
+      run: |
+        image_digest=$($CHECK_IMAGE)
+        echo "image-digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+    - name: Delete previous image version
+      if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-digest == null }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+        CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
         REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-file.sh
         TITLE: Deleted previous image version
         LANGUAGE: shell
       run: |
+        image_digest=$($CHECK_IMAGE)
+        if ! [[ $image_digest ]]; then
+          echo "Previous version of image with tags '$IMAGE_TAGS' not found"
+          exit
+        fi
+        
         echo "Deleting previous image version..."
         aws ecr batch-delete-image \
           --repository-name "$REPOSITORY" \
-          --image-ids imageDigest="$IMAGE_DIGEST" \
+          --image-ids imageDigest="$image_digest" \
           --output text | $REPORT | tee "$GITHUB_STEP_SUMMARY" 
 
     - name: Build Docker image
       id: build-image
-      if: ${{ steps.check-image-exists.outputs.image-exists == 'false' }}
+      if: ${{ steps.check-image-exists.outputs.image-digest == null }}
       shell: bash
       env:
         REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
@@ -142,7 +148,7 @@ runs:
         mapfile -t digests < <(docker image ls "$REGISTRY/$REPOSITORY" --format '{{.Digest}}' | sort -u)
         
         if [[ ${#digests[@]} -ne 1 ]]; then
-          echo "Expected one image digest for image $REGISTRY/$REPOSITORY but got \`${digests[*]}\`"
+          echo "Expected one image digest for image \`$REGISTRY/$REPOSITORY\` but got \`${digests[*]}\`"
           exit 1
         fi
         
@@ -150,5 +156,14 @@ runs:
         [[ ${#tags[@]} -le 1 ]] || plural=true
         [[ ${#tags[@]} -le 0 ]] || tag_msg="tag${plural:+s} \`${tags[*]}\`"
         
-        echo "Pushed image with ${tag_msg:-digest \`$digest\`}" >> "$GITHUB_STEP_SUMMARY"
+        echo "Pushed image with ${tag_msg:-digest \`$digest\`} to repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY"
         echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
+
+    - name: Set image URI
+      id: set-image-uri
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_DIGEST: ${{ steps.check-image-exists.outputs.image-digest || steps.report-pushed-image.outputs.image-digest }}
+      run: echo "image-uri=${REGISTRY}/${REPOSITORY}:@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"

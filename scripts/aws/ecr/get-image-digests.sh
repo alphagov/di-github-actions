@@ -5,16 +5,9 @@ set -eu
 
 read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
 tags=("${tags[@]/#/\'}") && tags=("${tags[@]/%/\'}")
+tag_list=$(IFS=","; echo "[${tags[*]}]")
 
-tag_list=$(
-  IFS=","
-  echo "[${tags[*]}]"
-)
-
-image_list=$(aws ecr list-images \
+aws ecr list-images \
   --repository-name "$REPOSITORY" \
   --query "imageIds[?contains($tag_list, imageTag)].[imageDigest]" \
-  --output text | sort -u)
-
-mapfile -t images <<< "$image_list"
-echo "${images[*]}"
+  --output text | sort -u | tr '\n' ' '
