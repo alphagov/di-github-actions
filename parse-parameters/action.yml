@@ -1,19 +1,23 @@
-name: 'Parse parameters'
-description: 'Parse parameters encoded as key-value pairs delimited by "|" or newlines into a key=value pairs string'
+name: "Parse parameters"
+description: "Parse parameters encoded as key-value pairs delimited by '|' or newlines into a key=value pairs string"
 inputs:
   parameters:
-    description: 'The parameters to parse'
+    description: "The parameters to parse"
     required: true
   env-var-name:
-    description: 'Name of an env var to store a string representation of an associative array containing the parsed params'
+    description: "Name of an env var to store a string representation of an associative array containing the parsed params"
     required: false
   associative-array:
     description: "Encode output as a string representing an associative array ([key1]=value1 ... [keyN]=valueN)"
     required: false
-    default: 'false'
+    default: "false"
+  long-format:
+    description: "Encode parsed parameters in the format key=<key>,value='<value>' (if not using an associative array)"
+    required: false
+    default: "false"
 outputs:
   parsed-parameters:
-    description: 'A string representation of a regular or an associative array containing the parsed params'
+    description: "A string representation of a regular or an associative array containing the parsed params"
     value: ${{ steps.parse-parameters.outputs.parsed-parameters }}
 runs:
   using: composite
@@ -23,6 +27,7 @@ runs:
       shell: bash
       env:
         PARAMETERS: ${{ inputs.parameters }}
+        LONG_FORMAT: ${{ inputs.long-format == 'true' }}
         ASSOCIATIVE_ARRAY: ${{ inputs.associative-array == 'true' }}
         PARSE: ${{ github.action_path }}/../scripts/parse-parameters.sh
       run: |

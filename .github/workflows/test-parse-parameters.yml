@@ -46,6 +46,7 @@ jobs:
         run: |
           [[ "${{ steps.parse-single-line-params-compact.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
 
+
       - name: Parse single-line parameters with spaces
         id: parse-single-line-params-spaces
         uses: ./parse-parameters
@@ -56,6 +57,32 @@ jobs:
       - name: Check single-line parameters with spaces parsed
         run: |
           [[ "${{ steps.parse-single-line-params-spaces.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse single-line parameters into an associative array
+        id: parse-single-line-params-associative
+        uses: ./parse-parameters
+        with:
+          parameters: sky = blue | test = foo bar
+          associative-array: true
+          long-format: true
+
+      - name: Check single-line parameters with spaces parsed
+        run: |
+          [[ "${{ steps.parse-single-line-params-associative.outputs.parsed-parameters }}" == "[sky]='blue' [test]='foo bar'" ]]
+
+
+      - name: Parse single-line parameters into long-format key-value pairs
+        id: parse-single-line-params-long-kvps
+        uses: ./parse-parameters
+        with:
+          parameters: sky=blue | test="foo bar"
+          associative-array: false
+          long-format: true
+
+      - name: Check single-line parameters parsed into long-format key-value pairs
+        run: |
+          [[ "${{ steps.parse-single-line-params-long-kvps.outputs.parsed-parameters }}" == "key=sky,value='blue' key=test,value='foo bar'" ]]
 
 
       - name: Parse single-line parameters into key-value pairs
