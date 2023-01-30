@@ -33,6 +33,15 @@ inputs:
     description: 'Number of app instances to deploy'
     required: false
     default: '1'
+  start-command:
+    description: "Command used to start the app"
+    required: false
+  manifest:
+    description: "Path to the manifest file"
+    required: false
+  app-dir:
+    description: "Path to the app directory"
+    required: false
 outputs:
   deployment-url:
     description: 'The PaaS deployment URL'
@@ -105,8 +114,16 @@ runs:
         ROLLING_DEPLOYMENT: ${{ inputs.rolling-deployment == 'true' }}
         VARS_FILE: ${{ runner.temp }}/variables.yaml
         INSTANCES: ${{ inputs.instances }}
+        APP_DIR: ${{ inputs.app-dir }}
+        START_COMMAND: ${{ inputs.start-command }}
+        MANIFEST_PATH: ${{ inputs.manifest }}
       run: |
+        $ROLLING_DEPLOYMENT && strategy="rolling"        
+
         cf push "${APP_NAME:-}" \
-          $($ROLLING_DEPLOYMENT && echo "--strategy rolling") \
+          ${APP_DIR:+--path "$APP_DIR"} \
+          ${MANIFEST_PATH:+--manifest "$MANIFEST_PATH"} \
+          ${START_COMMAND:+--start-command "$START_COMMAND"} \
+          --strategy ${strategy:-""} \
           --instances "$INSTANCES" \
           --vars-file "$VARS_FILE"
