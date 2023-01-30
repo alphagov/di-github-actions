@@ -1,6 +1,7 @@
 name: Beautify branch name test
 
 on: pull_request
+permissions: read-all
 
 jobs:
   run-tests:
