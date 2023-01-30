@@ -1,0 +1,95 @@
+name: "Register ECS task definition"
+description: "Render and register an ECS task definition from a json file for an ECR image"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when authenticating to ECR"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
+  task-definition:
+    description: "The path to the ECS task definition json file"
+    required: true
+  container:
+    description: "The name of the container defined in the containerDefinitions section of the ECS task definition"
+    required: true
+  image-uri:
+    description: "The URI of the container image to insert into the ECS task definition"
+    required: true
+  environment-variables:
+    description: "Variables to add to the container specified as KEY=value pairs, separated by newlines"
+    required: false
+  task-definition-tags:
+    description: "A list of tags to apply to the registered task definition, key=value pairs separated by newlines or '|'"
+    required: false
+  task-role-arn:
+    description: "Short name or ARN of the role that containers in the registered task can assume"
+    required: false
+  execution-role-arn:
+    description: "Short name or ARN of the role that grants the ECS container agent permissions to make AWS API calls"
+    required: false
+outputs:
+  task-definition-arn:
+    description: "The ARN of the registered task definition"
+    value: ${{ steps.register-task-definition.outputs.task-definition-arn }}
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Login to ECR
+      if: ${{ inputs.registry == null }}
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Parse task definition tags
+      id: parse-tags
+      shell: bash
+      env:
+        PARAMETERS: ${{ inputs.task-definition-tags }}
+        LONG_FORMAT: "true"
+        PARSE: ${{ github.action_path }}/../../../scripts/parse-parameters.sh
+      run: echo "tags=$($PARSE)" >> "$GITHUB_OUTPUT"
+
+    - name: Render task definition
+      id: render-task-definition
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        environment-variables: ${{ inputs.environment-variables }}
+        task-definition: ${{ inputs.task-definition }}
+        container-name: ${{ inputs.container }}
+        image: ${{ inputs.image-uri }}
+
+    - name: Register task definition
+      id: register-task-definition
+      shell: bash
+      env:
+        TASK_DEFINITION_TEMPLATE: ${{ steps.render-task-definition.outputs.task-definition }}
+        EXECUTION_ROLE_ARN: ${{ inputs.execution-role-arn }}
+        TASK_ROLE_ARN: ${{ inputs.task-role-arn }}
+        IMAGE_URI: ${{ inputs.image-uri }}
+        TAGS: ${{ steps.parse-tags.outputs.tags }}
+      run: |
+        read -ra tags <<< "$TAGS"
+        
+        registered_task_definition=$(aws ecs register-task-definition \
+          --cli-input-json "$(cat "$TASK_DEFINITION_TEMPLATE")" \
+          ${EXECUTION_ROLE_ARN:+--execution-role-arn $EXECUTION_ROLE_ARN} \
+          ${TASK_ROLE_ARN:+--task-role-arn $TASK_ROLE_ARN} \
+          ${TAGS:+--tags ${tags[@]}} \
+          --query "taskDefinition.[taskDefinitionArn, family, revision]" \
+          --output text)
+        
+        read -r arn family revision <<< "$registered_task_definition"
+        echo "Registered task definition \`$family:$revision\`" | tee "$GITHUB_STEP_SUMMARY"
+        echo "task-definition-arn=$arn" >> "$GITHUB_OUTPUT"

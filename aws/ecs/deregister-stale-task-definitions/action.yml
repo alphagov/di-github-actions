@@ -1,18 +1,41 @@
-name: 'Clean up stale task definitions'
-description: 'Deregister ECS task definitions which point to ECR images that no longer exist'
+name: "Clean up stale task definitions"
+description: "Deregister ECS task definitions which point to ECR images that no longer exist"
 inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when authenticating to ECR"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
   container:
-    description: 'Specifies the container definition containing the image to check, otherwise pick first container'
+    description: "Specifies the container definition containing the image to check, otherwise pick the first container"
     required: false
   family:
-    description: 'ECS task definition family to clean up'
+    description: "ECS task definition family to clean up"
     required: false
   registry:
-    description: 'Registry ID to query for images'
+    description: "Registry ID to query for images"
     required: false
 runs:
   using: composite
   steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Login to ECR
+      if: ${{ inputs.registry == null }}
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
     - name: Clean up stale task definitions
       id: deregister-task-definitions
       shell: bash
@@ -20,7 +43,7 @@ runs:
       env:
         ECS_FAMILY: ${{ inputs.family }}
         CONTAINER: ${{ inputs.container }}
-        REGISTRY: ${{ inputs.registry }}
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
 
     - name: Report results
       if: ${{ always() && join(steps.deregister-task-definitions.outputs.*, '') != null }}

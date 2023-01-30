@@ -1,49 +1,30 @@
-name: 'Check image exists'
-description: 'Check if the image with the specified tags exists in the queried ECR repo'
+name: "Check image exists"
+description: "Check if the image with the specified tags exists in the queried ECR repo"
 inputs:
   repository:
-    description: 'ECR repository name'
+    description: "ECR repository name"
     required: true
   image-tags:
-    description: 'Tags associated with the targeted image, delimited by spaces or newlines'
+    description: "Tags associated with the targeted image, delimited by spaces or newlines"
     required: true
 outputs:
   image-exists:
-    description: 'Boolean indicating whether the image exists'
+    description: "Boolean indicating whether the image exists"
     value: ${{ steps.check-image-exists.outputs.image-exists }}
   image-digest:
-    description: 'Digest of the image if it exists'
+    description: "Digest of the image if it exists"
     value: ${{ steps.check-image-exists.outputs.image-digest }}
 runs:
   using: composite
   steps:
-    - name: Get image digests
-      id: check-image-exists
+    - name: Check image exists
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
-        IMAGE_DIGESTS: ${{ github.action_path }}/../../../scripts/aws/ecr/get-image-digests.sh
+        CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
       run: |
-        image_digests=$($IMAGE_DIGESTS)
-        read -ra images <<< "$image_digests"
-
-        if [[ ${#images[@]} -gt 1 ]]; then
-          echo "::error::Expected only one image with tags '$IMAGE_TAGS' but got multiple: ${images[*]}"
-          exit 1
-        fi
-        
-        [[ ${#images[@]} -eq 1 ]] && image_exists=true || image_exists=false
+        image_digest=$($CHECK_IMAGE)
+        [[ $image_digest ]] && image_exists=true || image_exists=false
         echo "image-exists=$image_exists" >> "$GITHUB_OUTPUT"
-        echo "image-digest=${images[*]}" >> "$GITHUB_OUTPUT"
-
-    - name: Report result
-      if: ${{ steps.check-image-exists.outputs.image-exists == 'true' }}
-      shell: bash
-      env:
-        IMAGE_TAGS: ${{ inputs.image-tags }}
-        REPOSITORY: ${{ inputs.repository }}
-      run: |
-        read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
-        [[ ${#tags[@]} -gt 1 ]] && plural=true
-        echo "Image with tag${plural:+s} \`${tags[*]}\` exists in repository \`$REPOSITORY\`" | tee "$GITHUB_STEP_SUMMARY"
+        echo "image-digest=$image_digest" >> "$GITHUB_OUTPUT"
