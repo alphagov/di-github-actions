@@ -1,0 +1,31 @@
+name: 'Run npm security audit'
+description: 'Run an npm security audit and report results to the job summary if there are vulnerabilities detected'
+inputs:
+  error-if-vulnerabilities:
+    description: 'Exit the job with an error status code if vulnerabilities have been detected'
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - name: Pull repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: ${{ steps.check-merge-commit.outputs.fetch-depth }}
+
+    - name: Set up Node
+      uses: actions/setup-node@v3
+      with:
+        cache: npm
+
+    - name: Run npm audit
+      shell: bash
+      env:
+        QUIET: ${{ inputs.error-if-vulnerabilities == 'false' }}
+        OUTPUT: ${{ runner.temp }}/npm.output
+        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
+      run: |
+        if ! npm audit --workspaces --include-workspace-root | tee "$OUTPUT"; then
+          FILE=$OUTPUT TITLE="Security audit" CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
+          $QUIET || exit 1
+        fi

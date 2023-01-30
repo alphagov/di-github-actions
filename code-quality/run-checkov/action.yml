@@ -61,15 +61,13 @@ runs:
       shell: bash
       env:
         DIR: ${{ inputs.path }}
-        FILES: ${{ runner.temp }}/pr-files
       run: |
         files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-        [[ -z $DIR ]] || files=$(grep -E --regexp="^.*\/${DIR}\/.*$" <<< "$files") || true
         
-        if [[ -n $files ]]; then
-          echo "$files" >> "$FILES"
-          echo "files=$FILES" >> "$GITHUB_OUTPUT"
-        fi
+        [[ -z $DIR ]] || files=$(grep -E --regexp="^.*\/${DIR}\/.*$" <<< "$files") ||
+          (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+        
+        echo "files=$(tr '\n' ' ' <<< "$files")" >> "$GITHUB_OUTPUT"
 
     - name: Run Checkov on a pull request
       if: ${{ steps.check-merge-commit.outputs.merging == 'true' && steps.get-pr-files.outputs.files != null }}
@@ -80,9 +78,11 @@ runs:
         SKIP_FRAMEWORKS: ${{ steps.checkov-options.outputs.skip-frameworks }}
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
       run: |
-        mapfile -t files < "$FILES"
-        read -ra files <<< "${files[@]/#/-f }"  
-        checkov --quiet "${files[@]}" ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee "$OUTPUT_FILE"
+        read -ra files <<< "$FILES"
+        read -ra files <<< "${files[@]/#/-f }"
+        read -ra skip_checks <<< "$SKIP_CHECKS"
+        read -ra skip_frameworks <<< "$SKIP_FRAMEWORKS"
+        checkov --quiet "${files[@]}" "${skip_checks[@]}" "${skip_frameworks[@]}" | tee "$OUTPUT_FILE"
 
     - name: Run Checkov on a directory
       if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path != null }}
@@ -92,7 +92,10 @@ runs:
         SKIP_CHECKS: ${{ steps.checkov-options.outputs.skip-checks }}
         SKIP_FRAMEWORKS: ${{ steps.checkov-options.outputs.skip-frameworks }}
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
-      run: checkov --quiet -d "$DIR" ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee "$OUTPUT_FILE"
+      run: |
+        read -ra skip_checks <<< "$SKIP_CHECKS"
+        read -ra skip_frameworks <<< "$SKIP_FRAMEWORKS"
+        checkov --quiet -d "$DIR" "${skip_checks[@]}" "${skip_frameworks[@]}" | tee "$OUTPUT_FILE"
 
     - name: Run Checkov on the repo
       if: ${{ steps.check-merge-commit.outputs.merging == 'false' && inputs.path == null }}
@@ -102,8 +105,10 @@ runs:
         SKIP_FRAMEWORKS: ${{ steps.checkov-options.outputs.skip-frameworks }}
         OUTPUT_FILE: ${{ runner.temp }}/checkov.output
       run: |
-        checkov --quiet -d . ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee -a "$OUTPUT_FILE"
-        [[ -d .github ]] && checkov --quiet -d .github ${SKIP_CHECKS:-} ${SKIP_FRAMEWORKS:-} | tee -a "$OUTPUT_FILE"
+        read -ra skip_checks <<< "$SKIP_CHECKS"
+        read -ra skip_frameworks <<< "$SKIP_FRAMEWORKS"
+        checkov --quiet -d . "${skip_checks[@]}" "${skip_frameworks[@]}" | tee -a "$OUTPUT_FILE"
+        [[ -d .github ]] && checkov --quiet -d .github "${skip_checks[@]}" "${skip_frameworks[@]}" | tee -a "$OUTPUT_FILE"
 
     - name: Report Checkov result
       if: ${{ failure() }}
