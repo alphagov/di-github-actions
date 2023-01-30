@@ -26,10 +26,12 @@ runs:
   steps:
     - name: Parse tag filters
       id: parse-tag-filters
-      uses: alphagov/di-github-actions/parse-parameters@4460b10baa63ab00496fe5f5f39495d428018a27
-      with:
-        parameters: ${{ inputs.stack-tag-filters }}
-        associative-array: true
+      shell: bash
+      env:
+        PARAMETERS: ${{ inputs.stack-tag-filters }}
+        ASSOCIATIVE_ARRAY: 'true'
+        PARSE: ${{ github.action_path }}/../../scripts/parse-parameters.sh
+      run: echo "tag-filters=$($PARSE)" >> "$GITHUB_OUTPUT"
 
     - name: Filter stacks
       id: filter-stacks
@@ -38,8 +40,18 @@ runs:
       env:
         THRESHOLD_DAYS: ${{ inputs.threshold-days }}
         STACK_NAME_FILTER: ${{ inputs.stack-name-filter }}
-        STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.parsed-parameters }}
-        ENV_VAR_NAME: ${{ inputs.env-var-name }}
+        STACK_TAG_FILTERS: ${{ steps.parse-tag-filters.outputs.tag-filters }}
+
+    - name: Set environment variable
+      if: ${{ inputs.env-var-name != null && steps.filter-stacks.outputs.stack-names != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.env-var-name }}
+        STACK_NAMES: ${{ steps.filter-stacks.outputs.stack-names }}
+      run: |
+        echo "Setting environment variable '$ENV_VAR'..."
+        declare -n accumulate=$ENV_VAR
+        echo "$ENV_VAR=${accumulate:+$accumulate }$STACK_NAMES" >> "$GITHUB_ENV"
 
     - name: Report results
       shell: bash

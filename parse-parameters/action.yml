@@ -1,28 +1,46 @@
-name: 'Parse parameters'
-description: 'Parse parameters encoded as key-value pairs delimited by "|" or newlines into a key=value pairs string'
+name: "Parse parameters"
+description: "Parse parameters encoded as key-value pairs delimited by '|' or newlines into a key=value pairs string"
 inputs:
   parameters:
-    description: 'The parameters to parse'
+    description: "The parameters to parse"
     required: true
   env-var-name:
-    description: 'Name of an env var to store a string representation of an associative array containing the parsed params'
+    description: "Name of an env var to store a string representation of an associative array containing the parsed params"
     required: false
   associative-array:
     description: "Encode output as a string representing an associative array ([key1]=value1 ... [keyN]=valueN)"
     required: false
-    default: 'false'
+    default: "false"
+  long-format:
+    description: "Encode parsed parameters in the format key=<key>,value='<value>' (if not using an associative array)"
+    required: false
+    default: "false"
 outputs:
   parsed-parameters:
-    description: 'A string representation of a regular or an associative array containing the parsed params'
+    description: "A string representation of a regular or an associative array containing the parsed params"
     value: ${{ steps.parse-parameters.outputs.parsed-parameters }}
 runs:
   using: composite
   steps:
     - name: Parse parameters
       id: parse-parameters
-      run: ${{ github.action_path }}/parse-params.sh
       shell: bash
       env:
-        PARAMS: ${{ inputs.parameters }}
-        ENV_VAR_NAME: ${{ inputs.env-var-name }}
+        PARAMETERS: ${{ inputs.parameters }}
+        LONG_FORMAT: ${{ inputs.long-format == 'true' }}
         ASSOCIATIVE_ARRAY: ${{ inputs.associative-array == 'true' }}
+        PARSE: ${{ github.action_path }}/../scripts/parse-parameters.sh
+      run: |
+        parameters=$($PARSE)
+        echo "Parsed ${#parameters[@]} parameters"
+        echo "parsed-parameters=${parameters[*]}" >> "$GITHUB_OUTPUT"
+
+    - name: Set environment variable
+      if: ${{ inputs.env-var-name != null }}
+      shell: bash
+      env:
+        ENV_VAR: ${{ inputs.env-var-name }}
+        PARSED_PARAMETERS: ${{ steps.parse-parameters.outputs.parsed-parameters }}
+      run: |
+        echo "Setting environment variable '$ENV_VAR'..."
+        echo "$ENV_VAR=$PARSED_PARAMETERS" >> "$GITHUB_ENV"
