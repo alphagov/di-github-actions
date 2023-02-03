@@ -1,0 +1,103 @@
+name: "Delete ECR images"
+description: "Delete Docker images from an ECR repository"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when authenticating to ECR"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
+  repository:
+    description: "ECR repository name holding the images to delete"
+    required: true
+  image-tags:
+    description: "Delete all images that have at least one tag in this list; delimited by spaces or newlines"
+    required: false
+  image-digests:
+    description: "Delete all images with the specified digests; delimited by spaces or newlines"
+    required: false
+  error-on-failures:
+    description: "Whether to return an error status if some images failed to get deleted"
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Get image digests
+      id: get-image-digests
+      if: ${{ inputs.image-tags != null || inputs.image-digests != null }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_TAGS: ${{ inputs.image-tags }}
+        IMAGE_DIGESTS: ${{ inputs.image-digests }}
+        GET_DIGESTS: ${{ github.action_path }}/../../../scripts/aws/ecr/get-image-digests.sh
+      run: |
+        retrieved_digests=$($GET_DIGESTS)
+        read -ra retrieved_digests <<< "$retrieved_digests"
+        
+        read -ra digests < <(xargs <<< "$IMAGE_DIGESTS")
+        digests+=("${retrieved_digests[@]}")
+        
+        unique_digests=$(IFS=$'\n' && sort -u <<< "${digests[*]}" | xargs)
+        echo "digests=$unique_digests" >> "$GITHUB_OUTPUT"
+
+    - name: Delete images
+      if: ${{ steps.get-image-digests.outputs.digests != null }}
+      shell: bash
+      env:
+        IMAGE_DIGESTS: ${{ steps.get-image-digests.outputs.digests }}
+        REPOSITORY: ${{ inputs.repository }}
+        OUTPUT: ${{ runner.temp }}/delete-images.output
+      run: |
+        read -ra digests <<< "$IMAGE_DIGESTS"
+        digests=("${digests[@]/#/imageDigest=}")
+        
+        aws ecr batch-delete-image \
+          --repository-name "$REPOSITORY" \
+          --image-ids "$digests" \
+          --output json | tee "$OUTPUT"
+
+    - name: Report deleted images
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        RESULTS: ${{ runner.temp }}/delete-images.output
+        ERROR_STATUS: ${{ inputs.error-on-failures == 'true' }}
+        REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-list.sh
+      run: |
+        deleted_digests=$(jq -r '.imageIds[].imageDigest' "$RESULTS" | sort -u)
+        failed_digests=$(jq -r '.failures[].imageId.imageDigest' "$RESULTS")
+        
+        [[ $deleted_digests ]] && mapfile -t deleted_digests <<< "$deleted_digests" || deleted_digests=()
+        [[ $failed_digests ]] && mapfile -t failed_digests <<< "$failed_digests" || failed_digests=()
+        
+        for digest in "${deleted_digests[@]}"; do
+          tags=$(jq -r --arg digest "$digest" '.imageIds[] | select(.imageDigest == $digest) | .imageTag' "$RESULTS" | xargs)
+          success_messages+=("$digest ($tags)")
+        done
+        
+        for digest in "${failed_digests[@]}"; do
+          failure_reason=$(jq -r --arg digest "$digest" '.failures[] | select(.imageId.imageDigest == $digest) | .failureReason' "$RESULTS")
+          fail_messages+=("$digest ($failure_reason)")
+        done
+        
+        IFS=$'\n' && VALUES="${success_messages[*]}"$'\n' MESSAGE="Deleted images from repository \`${REPOSITORY}\`" \
+          SINGLE_MESSAGE="Deleted image %s from repository \`${REPOSITORY}\`" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        
+        IFS=$'\n' && VALUES="${fail_messages[*]}"$'\n' MESSAGE="Failed to delete images from repository \`${REPOSITORY}\`" \
+          SINGLE_MESSAGE="Failed to delete image %s from repository \`${REPOSITORY}\`" "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+        
+        [[ ${#failed_digests[@]} -gt 0 ]] && $ERROR_STATUS && exit 1 || exit 0
