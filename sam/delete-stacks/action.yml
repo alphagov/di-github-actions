@@ -44,10 +44,8 @@ runs:
         FAILED_STACKS: ${{ steps.delete-stacks.outputs.failed-stacks }}
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
       run: |
-        [[ -z $DELETED_STACKS ]] ||
-          VALUES=$DELETED_STACKS MESSAGE="Deleted stacks" SINGLE_MESSAGE="Deleted stack %s" $REPORT |
-          tee "$GITHUB_STEP_SUMMARY"
+        VALUES=$DELETED_STACKS MESSAGE="Deleted stacks" SINGLE_MESSAGE="Deleted stack %s" $REPORT |
+          tee -a "$GITHUB_STEP_SUMMARY"
         
-        [[ -z $FAILED_STACKS ]] ||
-          VALUES=$FAILED_STACKS MESSAGE="Failed to delete stacks" SINGLE_MESSAGE="Failed to delete stack %s" $REPORT |
-          tee "$GITHUB_STEP_SUMMARY"
+        VALUES=$FAILED_STACKS MESSAGE="Failed to delete stacks" SINGLE_MESSAGE="Failed to delete stack %s" $REPORT |
+          tee -a "$GITHUB_STEP_SUMMARY"

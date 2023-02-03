@@ -23,10 +23,8 @@ runs:
         FAILED_APPS: ${{ steps.delete-deployments.outputs.failed-apps }}
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
       run: |
-        [[ -z $DELETED_APPS ]] ||
-          VALUES=$DELETED_APPS MESSAGE="Deleted apps" SINGLE_MESSAGE="Deleted app %s" $REPORT |
+        VALUES=$DELETED_APPS MESSAGE="Deleted apps" SINGLE_MESSAGE="Deleted app %s" $REPORT |
           tee -a "$GITHUB_STEP_SUMMARY"
-
-        [[ -z $FAILED_APPS ]] ||
-          VALUES=$FAILED_APPS MESSAGE="Failed to delete apps" SINGLE_MESSAGE="Failed to delete app %s" $REPORT |
+        
+        VALUES=$FAILED_APPS MESSAGE="Failed to delete apps" SINGLE_MESSAGE="Failed to delete app %s" $REPORT |
           tee -a "$GITHUB_STEP_SUMMARY"

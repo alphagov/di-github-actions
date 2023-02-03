@@ -33,9 +33,15 @@ runs:
         CODE_BLOCK: ${{ inputs.code-block == 'true' }}
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
         OUT_FILE: ${{ inputs.output-file-path }}
-        VERBOSE: ${{ inputs.quiet == 'false' }}
+        QUIET: ${{ inputs.quiet == 'true' }}
       run: |
+        report=$($REPORT)
+        if ! [[ $report ]]; then
+          echo "No elements to print"
+          exit
+        fi
+        
         output_file=${OUT_FILE:-$GITHUB_STEP_SUMMARY}
-        $REPORT >> "$output_file"
-        $VERBOSE && cat "$output_file"
+        echo "$report" >> "$output_file"
+        $QUIET || cat "$output_file"
         echo "The result has been written to ${OUT_FILE:-the job summary}"

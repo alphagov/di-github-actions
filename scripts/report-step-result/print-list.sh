@@ -6,12 +6,15 @@ set -eu
 : "${CODE_BLOCK:=true}" # Print the values in a code block
 
 $CODE_BLOCK && code_block_char="\`"
-read -ra list <<< "$(tr '\n' ' ' <<< "$VALUES")"
 
-if [[ ${#list[@]} -eq 0 ]]; then
-  echo "No elements to print"
-  exit 1
+num_lines=$(wc -l <<< "$VALUES")
+if [[ $num_lines -le 1 ]]; then
+  read -ra list < <(xargs <<< "$VALUES")
+else
+  mapfile -t list < <(grep "\S" <<< "$VALUES")
 fi
+
+[[ ${#list[@]} -gt 0 ]] || exit 0
 
 if [[ ${#list[@]} -eq 1 ]]; then
   value="${code_block_char:-}${list[*]}${code_block_char:-}"

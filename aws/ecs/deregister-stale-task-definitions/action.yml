@@ -44,10 +44,8 @@ runs:
         FAILED_DEFINITIONS: ${{ steps.deregister-task-definitions.outputs.failed-definitions }}
         REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-list.sh
       run: |
-        [[ -z $DEREGISTERED_DEFINITIONS ]] ||
-          VALUES=$DEREGISTERED_DEFINITIONS MESSAGE="Deregistered ECS task definitions" \
-            SINGLE_MESSAGE="Deregistered ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        VALUES=$DEREGISTERED_DEFINITIONS MESSAGE="Deregistered ECS task definitions" \
+          SINGLE_MESSAGE="Deregistered ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
         
-        [[ -z $FAILED_DEFINITIONS ]] ||
-          VALUES=$FAILED_DEFINITIONS MESSAGE="Failed to deregister ECS task definitions" \
-            SINGLE_MESSAGE="Failed to deregister ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        VALUES=$FAILED_DEFINITIONS MESSAGE="Failed to deregister ECS task definitions" \
+          SINGLE_MESSAGE="Failed to deregister ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
