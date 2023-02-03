@@ -22,7 +22,7 @@ inputs:
     required: false
     default: latest
   image-tags:
-    description: "A list list additional tags to apply to the image, delimited by spaces or newlines"
+    description: "A list of additional tags to apply to the image, delimited by spaces or newlines"
     required: false
   immutable-tags:
     description: "Whether the repository is immutable (tags cannot be overwritten)"
@@ -95,7 +95,7 @@ runs:
       run: |
         image_digest=$($CHECK_IMAGE)
         if ! [[ $image_digest ]]; then
-          echo "Previous version of image with tags '$IMAGE_TAGS' not found"
+          echo "Previous version of image with tags '$(xargs <<< "$IMAGE_TAGS")' not found"
           exit
         fi
         
@@ -103,7 +103,7 @@ runs:
         aws ecr batch-delete-image \
           --repository-name "$REPOSITORY" \
           --image-ids imageDigest="$image_digest" \
-          --output text | $REPORT | tee "$GITHUB_STEP_SUMMARY" 
+          --output text | $REPORT | tee "$GITHUB_STEP_SUMMARY"
 
     - name: Build Docker image
       id: build-image
@@ -118,7 +118,7 @@ runs:
         BUILD_PATH: ${{ inputs.build-path }}
       run: |
         echo "::group::Build image"
-        read -ra tags <<< "$IMAGE_TAGS"
+        read -ra tags < <(xargs <<< "$IMAGE_TAGS")
         read -ra tags <<< "${tags[@]/#/--tag $REGISTRY/$REPOSITORY:}"        
         image_name=${IMAGE_VERSION:+$REGISTRY/$REPOSITORY:$IMAGE_VERSION}        
         docker build ${image_name:+--tag $image_name} "${tags[@]}" ${DOCKERFILE:+--file $DOCKERFILE} "$BUILD_PATH"

@@ -21,7 +21,7 @@ runs:
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
-        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/ecr/check-stacks-exist.sh
+        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/sam/check-stacks-exist.sh
       run: |
         declare -A stacks && eval "stacks=($($CHECK_STACKS))"
         echo "existing-stacks=${stacks[existing-stacks]:-}" >> "$GITHUB_OUTPUT"
