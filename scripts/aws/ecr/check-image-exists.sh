@@ -17,7 +17,7 @@ if [[ ${#images[@]} -gt 1 ]]; then
 fi
 
 if [[ ${#images[@]} -eq 1 ]] && ! $QUIET; then
-  read -ra tags <<< "$(tr '\n' ' ' <<< "$IMAGE_TAGS")"
+  read -ra tags < <(xargs <<< "$IMAGE_TAGS")
   [[ ${#tags[@]} -gt 1 ]] && plural=true
   echo "Image with tag${plural:+s} \`${tags[*]}\` exists in repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY"
 fi

@@ -17,9 +17,6 @@ inputs:
   family:
     description: "ECS task definition family to clean up"
     required: false
-  registry:
-    description: "Registry ID to query for images"
-    required: false
 runs:
   using: composite
   steps:
@@ -31,11 +28,6 @@ runs:
         role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Login to ECR
-      if: ${{ inputs.registry == null }}
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
     - name: Clean up stale task definitions
       id: deregister-task-definitions
       shell: bash
@@ -43,7 +35,6 @@ runs:
       env:
         ECS_FAMILY: ${{ inputs.family }}
         CONTAINER: ${{ inputs.container }}
-        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
 
     - name: Report results
       if: ${{ always() && join(steps.deregister-task-definitions.outputs.*, '') != null }}
@@ -53,10 +44,8 @@ runs:
         FAILED_DEFINITIONS: ${{ steps.deregister-task-definitions.outputs.failed-definitions }}
         REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-list.sh
       run: |
-        [[ -z $DEREGISTERED_DEFINITIONS ]] ||
-          VALUES=$DEREGISTERED_DEFINITIONS MESSAGE="Deregistered ECS task definitions" \
-            SINGLE_MESSAGE="Deregistered ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        VALUES=$DEREGISTERED_DEFINITIONS MESSAGE="Deregistered ECS task definitions" \
+          SINGLE_MESSAGE="Deregistered ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
         
-        [[ -z $FAILED_DEFINITIONS ]] ||
-          VALUES=$FAILED_DEFINITIONS MESSAGE="Failed to deregister ECS task definitions" \
-            SINGLE_MESSAGE="Failed to deregister ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
+        VALUES=$FAILED_DEFINITIONS MESSAGE="Failed to deregister ECS task definitions" \
+          SINGLE_MESSAGE="Failed to deregister ECS task definition %s" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"

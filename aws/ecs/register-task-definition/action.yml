@@ -47,11 +47,6 @@ runs:
         role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Login to ECR
-      if: ${{ inputs.registry == null }}
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
     - name: Parse task definition tags
       id: parse-tags
       shell: bash

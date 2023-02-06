@@ -117,15 +117,15 @@ jobs:
           diff "$OUTPUT_FILE" expected_file
 
 
-      - name: Print multiple values
+      - name: Print multiple values with extra spaces
         uses: ./report-step-result/print-list
         with:
-          values: one two three
+          values: "   one two three     four   five    "
           message: Reported values
           output-file-path: ${{ runner.temp }}/report-multiple-values.txt
           code-block: false
 
-      - name: Check multiple values reported
+      - name: Check multiple values with extra spaces reported
         env:
           OUTPUT_FILE: ${{ runner.temp }}/report-multiple-values.txt
         run: |
@@ -134,7 +134,8 @@ jobs:
             - one
             - two
             - three
-          
+            - four
+            - five
           EOF
 
           diff "$OUTPUT_FILE" expected_file
@@ -160,3 +161,128 @@ jobs:
           EOF
 
           [[ $(cat "$OUTPUT_FILE") == $(cat expected_file) ]]
+
+
+      - name: Print multi-line values
+        uses: ./report-step-result/print-list
+        with:
+          output-file-path: ${{ runner.temp }}/report-multiline-values.txt
+          code-block: false
+          message: Reported values
+          values: |
+            one
+            two
+            three
+
+      - name: Check multi-line values reported
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-multiline-values.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values:
+            - one
+            - two
+            - three
+          EOF
+
+          diff "$OUTPUT_FILE" expected_file
+
+
+      - name: Print multi-line values with spaces and empty lines
+        uses: ./report-step-result/print-list
+        with:
+          output-file-path: ${{ runner.temp }}/report-multiline-values-spaces.txt
+          code-block: false
+          message: Reported values
+          values: |
+            
+            
+            one two   three
+            blue pink yellow
+            
+            
+            apple banana orange
+            
+            seafood pasta sushi
+
+
+
+      - name: Check multi-line values with spaces and empty lines reported
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-multiline-values-spaces.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values:
+            - one two   three
+            - blue pink yellow
+            - apple banana orange
+            - seafood pasta sushi
+          EOF
+
+          diff "$OUTPUT_FILE" expected_file
+
+
+      - name: Use code block for multi-line values with spaces
+        uses: ./report-step-result/print-list
+        with:
+          output-file-path: ${{ runner.temp }}/report-multiline-values-block.txt
+          code-block: true
+          message: Reported values
+          values: |
+            one two three
+            blue pink yellow
+            apple banana orange
+
+
+      - name: Check code block used for multi-line values with spaces
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-multiline-values-block.txt
+        run: |
+          cat << 'EOF' > expected_file
+          Reported values:
+            - `one two three`
+            - `blue pink yellow`
+            - `apple banana orange`
+          EOF
+
+          diff "$OUTPUT_FILE" expected_file
+
+
+      - name: Complete without an error when given an empty list
+        id: terminate-successfully
+        uses: ./report-step-result/print-list
+        with:
+          output-file-path: ${{ runner.temp }}/report-empty-list.txt
+          code-block: false
+          message: Reported values
+          values: "     "
+
+      - name: Check action completed without an error given an empty list
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-empty-list.txt
+        run: |
+          [[ -s $OUTPUT_FILE ]] && echo "Expected the output file to be empty" && exit 1 || exit 0
+
+
+      - name: Complete without an error when given an empty multi-line value
+        id: terminate-successfully-multiline
+        uses: ./report-step-result/print-list
+        with:
+          output-file-path: ${{ runner.temp }}/report-empty-list-multiline.txt
+          code-block: false
+          message: Reported values
+          quiet: false
+          values: |
+
+
+
+
+
+
+
+
+      - name: Check action completed without an error given an empty multi-line value
+        env:
+          OUTPUT_FILE: ${{ runner.temp }}/report-empty-list-multiline.txt
+        run: |
+          [[ -s $OUTPUT_FILE ]] && echo "Expected the output file to be empty" && exit 1 || exit 0

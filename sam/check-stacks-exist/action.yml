@@ -23,7 +23,7 @@ runs:
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
-        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/ecr/check-stacks-exist.sh
+        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/sam/check-stacks-exist.sh
       run: |
         declare -A stacks && eval "stacks=($($CHECK_STACKS))"
         echo "existing-stacks=${stacks[existing-stacks]:-}" >> "$GITHUB_OUTPUT"
@@ -50,10 +50,8 @@ runs:
       run: |
         $VERBOSE && step_summary=$GITHUB_STEP_SUMMARY
         
-        [[ -z $EXISTING_STACKS ]] ||
-          VALUES=$EXISTING_STACKS MESSAGE="Existing stacks" SINGLE_MESSAGE="Stack %s exists" $REPORT |
-          tee "${step_summary:-}"
+        VALUES=$EXISTING_STACKS MESSAGE="Existing stacks" SINGLE_MESSAGE="Stack %s exists" $REPORT |
+          tee -a "${step_summary:-}"
         
-        [[ -z $MISSING_STACKS ]] ||
-          VALUES=$MISSING_STACKS MESSAGE="Non-existent stacks" SINGLE_MESSAGE="Stack %s does not exist" $REPORT |
-          tee "${step_summary:-}"
+        VALUES=$MISSING_STACKS MESSAGE="Non-existent stacks" SINGLE_MESSAGE="Stack %s does not exist" $REPORT |
+          tee -a "${step_summary:-}"

@@ -2,7 +2,6 @@ set -eu
 
 : "${ECS_FAMILY}"
 : "${CONTAINER}"
-: "${REGISTRY:-}"
 
 deregistered_definitions=()
 failed_definitions=()
@@ -23,16 +22,22 @@ for task_definition in "${task_definitions[@]}"; do
     --output text)
 
   image_name="${image#*/}"
-  image_repo="${image_name%:*}"
-  image_tag="${image_name#*:}"
+  image_repo="${image_name%%:*}"
+  image_id="${image_name#*:}"
+
+  if [[ $image_id =~ ^@(sha256:[a-fA-F0-9]+)$ ]]; then
+    image_query="imageDigest=${BASH_REMATCH[1]}"
+  else
+    image_query="imageTag=$image_id"
+  fi
 
   if ! aws ecr describe-images \
-    ${REGISTRY:+--registry-id $REGISTRY} \
     --repository-name "$image_repo" \
-    --image-ids imageTag="$image_tag" > /dev/null; then
+    --image-ids "$image_query" > /dev/null 2>&1; then
 
     task_definition_version="${task_definition#*task-definition/}"
-    echo "Deregistering task definition $task_definition_version..."
+    echo "Image with ID '$image_query' not found in repository '$image_repo':" \
+      "deregistering task definition '$task_definition_version'"
 
     aws ecs deregister-task-definition --task-definition "$task_definition" > /dev/null &&
       deregistered_definitions+=("$task_definition_version") ||
