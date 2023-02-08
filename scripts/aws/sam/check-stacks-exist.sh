@@ -2,7 +2,7 @@ set -eu
 
 : "${STACK_NAMES}" # Names of the stacks to check (space or newline-delimited string)
 
-read -ra stacks <<< "$(tr '\n' ' ' <<< "${STACK_NAMES}")"
+read -ra stacks < <(xargs <<< "${STACK_NAMES}")
 
 for stack in "${stacks[@]}"; do
   if aws cloudformation describe-stacks --stack-name "$stack" > /dev/null; then
