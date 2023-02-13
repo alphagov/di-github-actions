@@ -1,10 +1,14 @@
-name: 'Run npm security audit'
-description: 'Run an npm security audit and report results to the job summary if there are vulnerabilities detected'
+name: "Run npm security audit"
+description: "Run an npm security audit and report results to the job summary if there are vulnerabilities detected"
 inputs:
-  error-if-vulnerabilities:
-    description: 'Exit the job with an error status code if vulnerabilities have been detected'
+  workspaces:
+    description: "Run using the npm workspaces feature to run the audit for all projects in a monorepo"
     required: false
-    default: 'true'
+    default: "false"
+  error-if-vulnerabilities:
+    description: "Exit the job with an error status code if vulnerabilities have been detected"
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -22,10 +26,13 @@ runs:
       shell: bash
       env:
         QUIET: ${{ inputs.error-if-vulnerabilities == 'false' }}
+        WORKSPACES: ${{ inputs.workspaces == 'true' }}
         OUTPUT: ${{ runner.temp }}/npm.output
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-file.sh
       run: |
-        if ! npm audit --workspaces --include-workspace-root | tee "$OUTPUT"; then
+        $WORKSPACES && options=(--workspaces --include-workspace-root)
+        
+        if ! npm audit ${options:+${options[@]}} | tee "$OUTPUT"; then
           FILE=$OUTPUT TITLE="Security audit" CODE_BLOCK=true $REPORT >> "$GITHUB_STEP_SUMMARY"
           $QUIET || exit 1
         fi
