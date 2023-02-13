@@ -63,9 +63,7 @@ runs:
     - name: Get files to check
       if: ${{ env.MERGING == 'true' }}
       shell: bash
-      run: |
-        files=$(git diff --name-only --diff-filter=d HEAD^...HEAD | tr '\n' ' ')
-        echo "FILES=$files" >> "$GITHUB_ENV"
+      run: echo "FILES=$(git diff --name-only --diff-filter=d HEAD^...HEAD | xargs)" >> "$GITHUB_ENV"
 
     - name: Run Prettier
       if: ${{ inputs.run-prettier == 'true' && (env.FILES != null || env.MERGING == 'false') }}
@@ -95,11 +93,11 @@ runs:
         
         if $MERGING; then
           files="$(tr ' ' '\n' <<< "$FILES")"
-          read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
-          filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
+          read -ra types < <(xargs <<< "$TYPES")
+          filetype_regex=$(IFS="|" && echo ".*\.(${types[*]##.})$")
         
-          filtered_files="$(grep -E --regexp="$filetype_regex" <<< "$files")" ||
-            (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+          filtered_files=$(grep -E --regexp="$filetype_regex" <<< "$files") ||
+            case $? in 1) echo "No files to check" && exit 0 ;; *) exit $? ;; esac
         
           mapfile -t es_files <<< "$filtered_files"
         fi
@@ -118,16 +116,14 @@ runs:
         echo ":: Running cfn-lint"
         $STRICT && error_on_warnings=true
         
-        if $MERGING; then
-          files="$FILES"
-        else
+        if ! $MERGING; then
           shopt -s globstar dotglob extglob nullglob
           files=$(echo !(.github|node_modules|.aws-sam)/!(node_modules|.aws-sam)/*.@(yaml|yml))
         fi
         
-        read -ra files <<< "$files"
+        read -ra files <<< "${files:-$FILES}"
         filtered_files=$(grep -El --regexp='^AWSTemplateFormatVersion: "?[[:digit:]-]+"?' "${files[@]}") ||
-          (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+          case $? in 1) echo "No files to check" && exit 0 ;; *) exit $? ;; esac
         
         mapfile -t files <<< "$filtered_files"
         cfn-lint ${error_on_warnings:+--non-zero-exit-code warning} "${files[@]}" | tee "$OUTPUT" ||

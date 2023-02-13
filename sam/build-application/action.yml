@@ -1,31 +1,39 @@
-name: 'Build an AWS SAM application'
-description: 'Validates and builds the specified SAM application. The built artifact is found in the .aws-sam directory'
+name: "Build an AWS SAM application"
+description: "Validates and builds the specified SAM application. The built artifact is found in the .aws-sam directory"
 inputs:
-  sam-template-file:
-    description: 'Name of the SAM template file to use'
-    required: false
   aws-role-arn:
-    description: 'AWS role ARN to assume when validating the template'
-    required: true
+    description: "AWS role ARN to assume when validating the template"
+    required: false
   aws-region:
-    description: 'AWS region to use'
+    description: "AWS region to use"
     required: false
     default: eu-west-2
   aws-session-name:
-    description: 'Override the default AWS session name'
+    description: "Override the default AWS session name"
+    required: false
+  sam-template-file:
+    description: "Name of the SAM template file to use"
+    required: false
+  base-dir:
+    description: "Resolve relative paths to lambda functions' source code with respect to this folder"
     required: false
   enable-beta-features:
-    description: 'Use SAM beta features when building an application'
+    description: "Use SAM beta features when building an application"
     required: false
-    default: 'false'
+    default: "false"
   disable-cache:
-    description: 'Set to true to use the --no-cached option'
+    description: "Set to true to build without the cache"
     required: false
-    default: 'false'
+    default: "false"
+  disable-parallel:
+    description: "Set to true to build the resources sequentially"
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
     - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn }}
       uses: aws-actions/configure-aws-credentials@v1-node16
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
@@ -36,16 +44,22 @@ runs:
       shell: bash
       env:
         TEMPLATE_FILE: ${{ inputs.sam-template-file }}
-      run: sam validate ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
+      run: |
+        sam validate ${TEMPLATE_FILE:+--template-file "$TEMPLATE_FILE"}
+        sam validate ${TEMPLATE_FILE:+--template-file "$TEMPLATE_FILE"} --lint
 
     - name: Build SAM Application
       shell: bash
       env:
         TEMPLATE_FILE: ${{ inputs.sam-template-file }}
         BETA_FEATURES: ${{ inputs.enable-beta-features == 'true' }}
-        DISABLE_CACHE: ${{ inputs.disable-cache == 'true' }}
+        PARALLEL: ${{ inputs.disable-parallel == 'false' }}
+        CACHE: ${{ inputs.disable-cache == 'false' }}
+        BASE_DIR: ${{ inputs.base-dir }}
       run: |
-        sam build --parallel \
-          $($DISABLE_CACHE || echo "--cached") \
-          $($BETA_FEATURES && echo "--beta-features") \
-          ${TEMPLATE_FILE:+--template-file $TEMPLATE_FILE}
+        sam build \
+          ${TEMPLATE_FILE:+--template-file "$TEMPLATE_FILE"} \
+          ${BASE_DIR:+--base-dir "$BASE_DIR"} \
+          "$($PARALLEL && echo "--parallel")" \
+          "$($CACHE && echo "--cached" || echo "--no-cached")" \
+          "$($BETA_FEATURES && echo "--beta-features")"

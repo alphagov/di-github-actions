@@ -47,22 +47,23 @@ runs:
       env:
         TYPES: ${{ inputs.file-extensions }}
       run: |
-        read -ra types <<< "$(tr '\n' ' ' <<< "$TYPES")"
+        read -ra types < <(xargs <<< "$TYPES")
+        extensions=$(IFS="|" && echo "${types[*]##.}")
         
         if $MERGING; then
           files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
-          filetype_regex="$(IFS="|"; echo ".*\.(${types[*]##.})$")"
-
-          filtered_files=$(grep -E --regexp="$filetype_regex" <<< "$files") ||
-            (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
-
-          scripts=$(tr '\n' ' ' <<< "$filtered_files")
+          filter=".*\.($extensions)$"
         else
           shopt -s globstar dotglob extglob nullglob
-          scripts=$(IFS="|"; eval echo "**/*@(${types[*]})")
+          files=$(eval echo "**/*.@($extensions)")
+          filter="node_modules|\.aws-sam"
+          exclude=true
         fi
         
-        echo "SCRIPTS=$scripts" >> "$GITHUB_ENV"
+        scripts=$(grep -E ${exclude:+--invert-match} --regexp="$filter" < <(tr ' ' '\n' <<< "${files[*]}")) ||
+          case $? in 1) echo "No files to check" && exit 0 ;; *) exit $? ;; esac
+        
+        echo "SCRIPTS=$(xargs <<< "$scripts")" >> "$GITHUB_ENV"
 
     - name: Run shellcheck
       if: ${{ env.SCRIPTS != null && inputs.run-shellcheck == 'true' }}

@@ -1,13 +1,19 @@
 name: 'Delete SAM stacks'
 description: 'Delete existing AWS SAM stacks and optionally check their state'
 inputs:
+  aws-role-arn:
+    description: "AWS role ARN to assume when validating the template"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
   stack-names:
     description: 'Names of the stacks to delete (space or newline-delimited string)'
     required: true
-  aws-region:
-    description: 'AWS region to use'
-    required: false
-    default: eu-west-2
   only-if-failed:
     description: 'Delete a stack only if it is in one of the failed states'
     required: false
@@ -15,6 +21,14 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
     - name: Check stacks exist
       id: check-stacks-exist
       if: ${{ inputs.stack-names }}
@@ -42,6 +56,7 @@ runs:
       env:
         DELETED_STACKS: ${{ steps.delete-stacks.outputs.deleted-stacks }}
         FAILED_STACKS: ${{ steps.delete-stacks.outputs.failed-stacks }}
+        IGNORED_STACKS: ${{ steps.delete-stacks.outputs.ignored-stacks }}
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
       run: |
         VALUES=$DELETED_STACKS MESSAGE="Deleted stacks" SINGLE_MESSAGE="Deleted stack %s" $REPORT |
@@ -49,3 +64,5 @@ runs:
         
         VALUES=$FAILED_STACKS MESSAGE="Failed to delete stacks" SINGLE_MESSAGE="Failed to delete stack %s" $REPORT |
           tee -a "$GITHUB_STEP_SUMMARY"
+        
+        VALUES=$IGNORED_STACKS MESSAGE="Ignored stacks in a good state" SINGLE_MESSAGE="Ignored stack %s in a good state" $REPORT

@@ -55,6 +55,7 @@ runs:
         echo "digests=$unique_digests" >> "$GITHUB_OUTPUT"
 
     - name: Delete images
+      id: delete-images
       if: ${{ steps.get-image-digests.outputs.digests != null }}
       shell: bash
       env:
@@ -71,6 +72,7 @@ runs:
           --output json | tee "$OUTPUT"
 
     - name: Report deleted images
+      if: ${{ always() && steps.delete-images.outcome != 'skipped' }}
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}

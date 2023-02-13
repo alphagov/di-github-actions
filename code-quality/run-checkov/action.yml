@@ -48,11 +48,11 @@ runs:
         SKIP_FRAMEWORKS: ${{ inputs.skip-frameworks }}
       run: |
         if [[ -n $SKIP_CHECKS ]]; then
-          echo "skip-checks=--skip-check $(echo -n "$SKIP_CHECKS" | tr '\n' ' ' | tr ' ' ',')" >> "$GITHUB_OUTPUT"
+          echo "skip-checks=--skip-check $(xargs <<< "$SKIP_CHECKS" | tr ' ' ',')" >> "$GITHUB_OUTPUT"
         fi
         
         if [[ -n $SKIP_FRAMEWORKS ]]; then
-          echo "skip-frameworks=--skip-framework $(echo -n "$SKIP_FRAMEWORKS" | tr '\n' ',' | tr ',' ' ')" >> "$GITHUB_OUTPUT"
+          echo "skip-frameworks=--skip-framework $(xargs <<< "$SKIP_FRAMEWORKS")" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Get pull request files
@@ -64,10 +64,12 @@ runs:
       run: |
         files=$(git diff --name-only --diff-filter=d HEAD^...HEAD)
         
-        [[ -z $DIR ]] || files=$(grep -E --regexp="^.*\/${DIR}\/.*$" <<< "$files") ||
-          (status=$? && [[ $status -eq 1 ]] && echo "No files to check" || exit $status) && exit
+        if [[ $DIR ]]; then
+          files=$(grep -E --regexp="^.*\/${DIR}\/.*$" <<< "$files") ||
+            case $? in 1) echo "No files to check" && exit 0 ;; *) exit $? ;; esac
+        fi
         
-        echo "files=$(tr '\n' ' ' <<< "$files")" >> "$GITHUB_OUTPUT"
+        echo "files=$(xargs <<< "$files")" >> "$GITHUB_OUTPUT"
 
     - name: Run Checkov on a pull request
       if: ${{ steps.check-merge-commit.outputs.merging == 'true' && steps.get-pr-files.outputs.files != null }}
