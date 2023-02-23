@@ -12,7 +12,7 @@ for stack in "${stacks[@]}"; do
       --query "Stacks[].StackStatus" \
       --output text)
 
-    if ! [[ $stack_state =~ _FAILED$ ]]; then
+    if ! [[ $stack_state =~ _FAILED$|^ROLLBACK_COMPLETE$ ]]; then
       ignored+=("$stack")
       continue
     fi
