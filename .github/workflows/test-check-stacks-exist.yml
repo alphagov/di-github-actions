@@ -24,7 +24,7 @@ jobs:
 
       - name: Check one stack's existence verified
         run: |
-          [[ ${{ steps.verify-one-stack-exists.outputs.existing-stacks }} == test-one ]]
+          [[ "${{ steps.verify-one-stack-exists.outputs.existing-stacks }}" == test-one ]]
 
 
       - name: Verify multiple stacks exists

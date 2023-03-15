@@ -1,21 +1,21 @@
-name: 'Beautify branch name'
-description: 'Modify the branch name to be usable in deployment and host names'
+name: "Beautify branch name"
+description: "Modify the branch name to be usable in deployment and host names"
 inputs:
   branch-name:
     description: "Override the branch name to transform"
     required: false
   downcase:
-    description: 'Whether to downcase all letters in the branch name'
+    description: "Whether to downcase all letters in the branch name"
     required: false
-    default: 'true'
+    default: "true"
   underscores-to-hyphens:
-    description: 'Whether to replace all underscores with hyphens'
+    description: "Whether to replace all underscores with hyphens"
     required: false
-    default: 'true'
+    default: "true"
   length-limit:
-    description: 'Maximum length of the modified string'
+    description: "Maximum length of the modified string"
     required: false
-    default: '200'
+    default: "200"
   prefix:
     description: "'prefix-' will be prepended to the returned string. Included in the length limit"
     required: false
@@ -23,8 +23,12 @@ inputs:
     description: "Name of the environment variable to set in the job with the value of the modified branch name"
     required: false
   usage:
-    description: 'The purpose for which the transformed name is used - for logging purposes only'
+    description: "The purpose for which the transformed name is used - for logging purposes only"
     required: false
+  verbose:
+    description: "Print a message to the step summary"
+    required: false
+    default: "true"
 outputs:
   pretty-branch-name:
     description: 'Beautified branch name'
@@ -42,12 +46,13 @@ runs:
         REPLACE_UNDERSCORES: ${{ inputs.underscores-to-hyphens == 'true' }}
         PREFIX: ${{ inputs.prefix }}
         MESSAGE: ${{ inputs.usage }}
+        QUIET: ${{ inputs.verbose == 'false' }}
         TRANSFORM: ${{ github.action_path }}/../scripts/transform-branch-name.sh
       run: |
         echo "Transforming $BRANCH_NAME..."
         pretty_branch_name=$($TRANSFORM)
         echo "pretty-branch-name=$pretty_branch_name" >> "$GITHUB_OUTPUT"
-        echo "${MESSAGE:-Pretty branch name}: \`$pretty_branch_name\`" | tee "$GITHUB_STEP_SUMMARY"
+        $QUIET || echo "${MESSAGE:-Pretty branch name}: \`$pretty_branch_name\`" | tee "$GITHUB_STEP_SUMMARY"
 
     - name: Set environment variable
       if: ${{ inputs.set-env-var != null }}

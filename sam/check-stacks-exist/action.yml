@@ -20,14 +20,12 @@ runs:
   steps:
     - name: Check stacks exist
       id: check-stacks-exist
+      if: ${{ inputs.stack-names != null }}
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
         CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/sam/check-stacks-exist.sh
-      run: |
-        declare -A stacks && eval "stacks=($($CHECK_STACKS))"
-        echo "existing-stacks=${stacks[existing-stacks]:-}" >> "$GITHUB_OUTPUT"
-        echo "missing-stacks=${stacks[missing-stacks]:-}" >> "$GITHUB_OUTPUT"
+      run: $CHECK_STACKS
 
     - name: Set environment variable
       if: ${{ inputs.set-env-var != null && steps.check-stacks-exist.outputs.existing-stacks != null }}
@@ -40,7 +38,7 @@ runs:
         echo "$ENV_VAR=$EXISTING_STACKS" >> "$GITHUB_ENV"
 
     - name: Report results
-      if: ${{ join(steps.check-stacks-exist.outputs.*, '') != null }}
+      if: ${{ always() && steps.check-stacks-exist.outcome == 'success' }}
       shell: bash
       env:
         EXISTING_STACKS: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
@@ -51,7 +49,7 @@ runs:
         $VERBOSE && step_summary=$GITHUB_STEP_SUMMARY
         
         VALUES=$EXISTING_STACKS MESSAGE="Existing stacks" SINGLE_MESSAGE="Stack %s exists" $REPORT |
-          tee -a "${step_summary:-}"
+          tee -a "${step_summary[@]}"
         
         VALUES=$MISSING_STACKS MESSAGE="Non-existent stacks" SINGLE_MESSAGE="Stack %s does not exist" $REPORT |
-          tee -a "${step_summary:-}"
+          tee -a "${step_summary[@]}"

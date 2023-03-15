@@ -3,7 +3,7 @@ set -eu
 delete_only_failed=${ONLY_FAILED}
 failed=()
 
-read -ra stacks < <(xargs <<< "${STACK_NAMES}")
+read -ra stacks < <(xargs <<< "$STACK_NAMES")
 
 for stack in "${stacks[@]}"; do
   if $delete_only_failed; then
