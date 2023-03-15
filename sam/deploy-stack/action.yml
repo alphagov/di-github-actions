@@ -1,94 +1,116 @@
-name: 'Deploy SAM stack'
-description: 'Deploy an AWS SAM stack'
+name: "Deploy SAM stack"
+description: "Deploy an AWS SAM stack"
 inputs:
+  aws-role-arn:
+    description: "AWS role ARN to assume when deploying the stack"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
   stack-name:
-    description: 'Name of the stack to deploy. Derived from branch name if not provided'
+    description: "Name of the stack to deploy. Derived from branch name if not provided"
     required: false
   stack-name-prefix:
-    description: 'Stack name prefix to use when deriving the name from the branch name'
+    description: "Stack name prefix to use when deriving the name from the branch name"
     required: false
   s3-prefix:
-    description: 'A prefix to use when uploading deployment artifacts'
+    description: "A prefix to use when uploading deployment artifacts"
     required: false
   sam-deployment-bucket:
-    description: 'S3 bucket used to store the deployment artifacts'
+    description: "S3 bucket used to store the deployment artifacts"
     required: true
   delete-failed-stack:
-    description: 'Attempt to delete the stack before deploying it if it exists and is in a failed state'
+    description: "Attempt to delete the stack before deploying it if it exists and is in a failed state"
     required: false
-    default: 'false'
+    default: "false"
   disable-rollback:
-    description: 'Pass through the --disable-rollback param to SAM CLI'
+    description: "Pass through the --disable-rollback param to SAM CLI"
     required: false
-    default: 'false'
+    default: "false"
   tags:
-    description: 'A list of tags to associate with the stack'
+    description: "A list of tags to associate with the stack, encoded as key-value pairs delimited by '|' or newlines"
     required: false
   parameters:
-    description: 'Parameter overrides for the SAM template'
+    description: "Parameter overrides for the SAM template, encoded as key-value pairs delimited by '|' or newlines"
     required: false
 outputs:
   stack-name:
-    description: 'The deployed stack name'
-    value: ${{ steps.deploy-stack.outputs.stack-name }}
+    description: "The deployed stack name"
+    value: ${{ env.STACK_NAME }}
+  stack-url:
+    description: "The URL of the deployed stack in the AWS console"
+    value: ${{ steps.set-stack-name.outputs.stack-url }}
 runs:
   using: composite
   steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
     - name: Parse parameters
       id: parse-parameters
       if: ${{ inputs.parameters != null }}
       shell: bash
       env:
-        PARAMETERS: ${{ inputs.parameters }}
+        TAGS: ${{ inputs.tags }}
+        PARAMS: ${{ inputs.parameters }}
         PARSE: ${{ github.action_path }}/../../scripts/parse-parameters.sh
-      run: echo "parameters=$($PARSE)" >> "$GITHUB_OUTPUT"
-
-    - name: Parse tags
-      id: parse-tags
-      if: ${{ inputs.tags != null }}
-      shell: bash
-      env:
-        PARAMETERS: ${{ inputs.tags }}
-        PARSE: ${{ github.action_path }}/../../scripts/parse-parameters.sh
-      run: echo "tags=$($PARSE)" >> "$GITHUB_OUTPUT"
+      run: |
+        tags=$(PARAMETERS=$TAGS $PARSE)
+        parameters=$(PARAMETERS=$PARAMS $PARSE)
+        
+        echo "tags=$tags" >> "$GITHUB_OUTPUT"
+        echo "parameters=$parameters" >> "$GITHUB_OUTPUT"
 
     - name: Get stack name from branch
-      id: set-stack-name
+      id: get-branch-name
       if: ${{ inputs.stack-name == null }}
       shell: bash
       env:
         DOWNCASE: true
-        LENGTH_LIMIT: 150
+        LENGTH_LIMIT: 128
         REPLACE_UNDERSCORES: true
         PREFIX: ${{ inputs.stack-name-prefix }}
         TRANSFORM: ${{ github.action_path }}/../../scripts/transform-branch-name.sh
       run: |
         stack_name=$($TRANSFORM)
         echo "stack-name=$stack_name" >> "$GITHUB_OUTPUT"
-        echo "Stack name: \`$stack_name\`" | tee "$GITHUB_STEP_SUMMARY"
 
     - name: Set stack name
+      id: set-stack-name
       shell: bash
       env:
-        STACK_NAME: ${{ steps.set-stack-name.outputs.stack-name || inputs.stack-name }}
-      run: echo "STACK_NAME=$STACK_NAME" >> "$GITHUB_ENV"
+        STACK_NAME: ${{ steps.get-branch-name.outputs.stack-name || inputs.stack-name }}
+      run: |
+        url="https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home#/stacks/stackinfo?stackId=${STACK_NAME}"
+        echo "stack-url=$url" >> "$GITHUB_OUTPUT"
+        echo "STACK_NAME=$STACK_NAME" >> "$GITHUB_ENV"
 
     - name: Delete failed stack
       if: ${{ inputs.delete-failed-stack == 'true' }}
-      uses: alphagov/di-github-actions/sam/delete-stacks@92639740da7f67f445d10711e7b0fc1c9022f602
-      with:
-        only-if-failed: true
-        stack-names: ${{ env.STACK_NAME }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Deploy SAM stack
+      run: ${{ github.action_path }}/../../scripts/aws/sam/delete-stacks.sh
       shell: bash
       env:
-        S3_BUCKET: ${{ inputs.sam-deployment-bucket }}
+        ONLY_FAILED: true
+        STACK_NAMES: ${{ env.STACK_NAME }}
+
+    - name: Deploy SAM stack
+      id: deploy-stack
+      shell: bash
+      env:
         S3_PREFIX: ${{ inputs.s3-prefix }}
+        S3_BUCKET: ${{ inputs.sam-deployment-bucket }}
         DISABLE_ROLLBACK: ${{ inputs.disable-rollback == 'true' }}
         PARAMETERS: ${{ steps.parse-parameters.outputs.parameters }}
-        TAGS: ${{ steps.parse-tags.outputs.tags }}
+        TAGS: ${{ steps.parse-parameters.outputs.tags }}
       run: |
         sam deploy \
           --stack-name "$STACK_NAME" \
@@ -98,9 +120,18 @@ runs:
           --no-confirm-changeset \
           --no-fail-on-empty-changeset \
           --capabilities CAPABILITY_NAMED_IAM \
-          ${TAGS:+--tags "$TAGS"} \
-          ${PARAMETERS:+--parameter-overrides "$PARAMETERS"}
+          ${PARAMETERS:+--parameter-overrides "$PARAMETERS"} \
+          ${TAGS:+--tags "$TAGS"}
 
     - name: Report deployment
       shell: bash
-      run: echo "Deployed stack \`$STACK_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+      env:
+        STACK_URL: ${{ steps.set-stack-name.outputs.stack-url }}
+      run: echo "🚀 Deployed [stack \`$STACK_NAME\`]($STACK_URL)" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Report failed deployment
+      if: ${{ failure() && steps.deploy-stack.outcome != 'success' }}
+      shell: bash
+      env:
+        STACK_URL: ${{ steps.set-stack-name.outputs.stack-url }}
+      run: echo "❌ Failed to deploy [stack \`$STACK_NAME\`]($STACK_URL)" >> "$GITHUB_STEP_SUMMARY"
