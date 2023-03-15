@@ -80,5 +80,6 @@ runs:
         TRIM_PATH: ${{ inputs.trim-path == 'true' }}
       run: |
         $TRIM_PATH && trim_filter='|sub(".*\/"; "")'
-        parameters=$(jq --slurp --compact-output "flatten | map({(.name${trim_filter:-}): .value}) | add" <<< "$PARAMETERS")
+        parameters=$(jq --slurp --compact-output --exit-status \
+          "flatten | map({(.name${trim_filter:-}): .value}) | add" <<< "$PARAMETERS") || parameters="{}"
         echo "parameters=$parameters" >> "$GITHUB_OUTPUT"
