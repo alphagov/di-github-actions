@@ -21,4 +21,6 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
         IMAGE_DIGESTS: ${{ github.action_path }}/../../../scripts/aws/ecr/get-image-digests.sh
-      run: echo "image-digests=$($IMAGE_DIGESTS)" >> "$GITHUB_OUTPUT"
+      run: |
+        image_digests=$($IMAGE_DIGESTS)
+        echo "image-digests=$image_digests" >> "$GITHUB_OUTPUT"

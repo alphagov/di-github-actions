@@ -36,6 +36,9 @@ outputs:
   task-definition-arn:
     description: "The ARN of the registered task definition"
     value: ${{ steps.register-task-definition.outputs.task-definition-arn }}
+  task-definition-url:
+    description: "URL of the registered task definition in the AWS console"
+    value: ${{ steps.register-task-definition.outputs.task-definition-url }}
 runs:
   using: composite
   steps:
@@ -86,5 +89,9 @@ runs:
           --output text)
         
         read -r arn family revision <<< "$registered_task_definition"
-        echo "Registered task definition \`$family:$revision\`" | tee "$GITHUB_STEP_SUMMARY"
+        url="https://${AWS_REGION}.console.aws.amazon.com/ecs/v2/task-definitions/${family}/${revision}"        
+
         echo "task-definition-arn=$arn" >> "$GITHUB_OUTPUT"
+        echo "task-definition-url=$url" >> "$GITHUB_OUTPUT"
+
+        echo "📝 Registered [task definition \`$family:$revision\`]($url)" | tee "$GITHUB_STEP_SUMMARY"

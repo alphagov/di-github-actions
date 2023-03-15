@@ -1,0 +1,84 @@
+name: "Get parameters from the SSM Parameter Store"
+description: "Retrieve parameters by name or path; return a JSON object with parameter values keyed by their names"
+inputs:
+  aws-role-arn:
+    description: "ARN of the AWS role to assume"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
+  parameter-names:
+    description: "Names of the parameters to retrieve; multiple values delimited by spaces or newlines"
+    required: false
+  parameter-path:
+    description: "Retrieve parameters in a specific hierarchy; starts with a /"
+    required: false
+  recursive:
+    description: "Retrieve all parameters within a hierarchy when using a path (get parameters from all sub-paths)"
+    required: false
+    default: "false"
+  trim-path:
+    description: "Exclude the parameter hierarchy from the object keys (the keys will be the part after the last /)"
+    required: false
+    default: "false"
+outputs:
+  parameters:
+    description: "A JSON object with parameter values keyed by their names"
+    value: ${{ steps.get-parameters.outputs.parameters }}
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Get named parameters
+      id: get-named-params
+      if: ${{ inputs.parameter-names != null }}
+      shell: bash
+      env:
+        PARAM_NAMES: ${{ inputs.parameter-names }}
+      run: |
+        read -ra param_names < <(xargs <<< "$PARAM_NAMES")
+        
+        echo "parameters=" \
+          "$(aws ssm get-parameters \
+            --names "${param_names[@]}" \
+            --query "Parameters[].{name: Name, value: Value}" \
+            --output json | jq --compact-output)" >> "$GITHUB_OUTPUT"
+
+    - name: Get parameters by path
+      id: get-path-params
+      if: ${{ inputs.parameter-path != null }}
+      shell: bash
+      env:
+        PARAM_PATH: ${{ inputs.parameter-path }}
+        RECURSIVE: ${{ inputs.recursive == 'true' }}
+      run: |
+        echo "parameters=" \
+          "$(aws ssm get-parameters-by-path \
+            --path "$PARAM_PATH" \
+            "$($RECURSIVE && echo "--recursive")" \
+            --query "Parameters[].{name: Name, value: Value}" \
+            --output json | jq --compact-output)" >> "$GITHUB_OUTPUT"
+
+    - name: Get parameter values
+      id: get-parameters
+      if: ${{ join(steps.*.outputs.parameters, '') != null }}
+      shell: bash
+      env:
+        PARAMETERS: ${{ join(steps.*.outputs.parameters, '') }}
+        PARAM_PATH: ${{ inputs.parameter-path }}
+        TRIM_PATH: ${{ inputs.trim-path == 'true' }}
+      run: |
+        $TRIM_PATH && trim_filter='|sub(".*\/"; "")'
+        parameters=$(jq --slurp --compact-output "flatten | map({(.name${trim_filter:-}): .value}) | add" <<< "$PARAMETERS")
+        echo "parameters=$parameters" >> "$GITHUB_OUTPUT"

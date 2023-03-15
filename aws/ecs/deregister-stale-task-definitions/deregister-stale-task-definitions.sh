@@ -33,7 +33,7 @@ for task_definition in "${task_definitions[@]}"; do
 
   if ! aws ecr describe-images \
     --repository-name "$image_repo" \
-    --image-ids "$image_query" > /dev/null 2>&1; then
+    --image-ids "$image_query" &> /dev/null; then
 
     task_definition_version="${task_definition#*task-definition/}"
     echo "Image with ID '$image_query' not found in repository '$image_repo':" \
