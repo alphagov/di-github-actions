@@ -93,13 +93,13 @@ runs:
         
         for digest in "${failed_digests[@]}"; do
           failure_reason=$(jq -r --arg digest "$digest" '.failures[] | select(.imageId.imageDigest == $digest) | .failureReason' "$RESULTS")
-          fail_messages+=("$digest ($failure_reason)")
+          fail_messages+=("\`$digest\`: $failure_reason")
         done
         
         IFS=$'\n' && VALUES="${success_messages[*]}"$'\n' MESSAGE="Deleted images from repository \`${REPOSITORY}\`" \
           SINGLE_MESSAGE="Deleted image %s from repository \`${REPOSITORY}\`" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
         
         IFS=$'\n' && VALUES="${fail_messages[*]}"$'\n' MESSAGE="Failed to delete images from repository \`${REPOSITORY}\`" \
-          SINGLE_MESSAGE="Failed to delete image %s from repository \`${REPOSITORY}\`" "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+          SINGLE_MESSAGE="Failed to delete image from repository \`${REPOSITORY}\`"$'\n'%s CODE_BLOCK=false $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
         
         [[ ${#failed_digests[@]} -gt 0 ]] && $ERROR_STATUS && exit 1 || exit 0

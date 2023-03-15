@@ -53,7 +53,10 @@ outputs:
     value: ${{ inputs.image-tags }}
   image-uri:
     description: "Image URI in the format <registry>/<repository>@<digest>"
-    value: ${{ steps.set-image-uri.outputs.image-uri }}
+    value: ${{ steps.get-image-uri.outputs.image-uri }}
+  image-url:
+    description: "URL of the pushed Docker image in the AWS console"
+    value: ${{ steps.check-image-exists.outputs.image-url || steps.report-pushed-image.outputs.image-url }}
 runs:
   using: composite
   steps:
@@ -78,32 +81,40 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-version }}
         CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
-      run: |
-        image_digest=$($CHECK_IMAGE)
-        echo "image-digest=$image_digest" >> "$GITHUB_OUTPUT"
+        VERBOSE: "true"
+      run: $CHECK_IMAGE
 
-    - name: Delete previous image version
+    - name: Check previous image version exists
+      id: check-previous-image-exists
       if: ${{ inputs.immutable-tags == 'true' && steps.check-image-exists.outputs.image-digest == null }}
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
         CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
-        REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-file.sh
-        TITLE: Deleted previous image version
-        LANGUAGE: shell
+      run: $CHECK_IMAGE
+
+    - name: Delete previous image version
+      if: ${{ steps.check-previous-image-exists.outputs.image-digest != null }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_DIGEST: ${{ steps.check-previous-image-exists.outputs.image-digest }}
       run: |
-        image_digest=$($CHECK_IMAGE)
-        if ! [[ $image_digest ]]; then
-          echo "Previous version of image with tags '$(xargs <<< "$IMAGE_TAGS")' not found"
-          exit
+        deleted_image=$(aws ecr batch-delete-image \
+          --repository-name "$REPOSITORY" \
+          --image-ids imageDigest="$IMAGE_DIGEST" \
+          --output json)
+        
+        failure_reason=$(jq -r '.failures[].failureReason' <<< "$deleted_image")
+        
+        if [[ $failure_reason ]]; then
+          echo "❌ Failed to delete previous image version. $failure_reason" | tee "$GITHUB_STEP_SUMMARY"
+          exit 1
         fi
         
-        echo "Deleting previous image version..."
-        aws ecr batch-delete-image \
-          --repository-name "$REPOSITORY" \
-          --image-ids imageDigest="$image_digest" \
-          --output text | $REPORT | tee "$GITHUB_STEP_SUMMARY"
+        deleted_image_tags=$(jq -r '.imageIds[].imageTag' <<< "$deleted_image" | xargs)
+        echo "🚮 Deleted previous image version (\`$deleted_image_tags\`)" | tee "$GITHUB_STEP_SUMMARY"
 
     - name: Build Docker image
       id: build-image
@@ -153,14 +164,18 @@ runs:
         fi
         
         digest=${digests[*]}
+        url="https://${AWS_REGION}.console.aws.amazon.com/ecr/repositories/private/${REGISTRY%%.*}/${REPOSITORY}/_/image/${digest}/details"
+        
+        echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
+        echo "image-url=$url" >> "$GITHUB_OUTPUT"
+
         [[ ${#tags[@]} -le 1 ]] || plural=true
         [[ ${#tags[@]} -le 0 ]] || tag_msg="tag${plural:+s} \`${tags[*]}\`"
         
-        echo "Pushed image with ${tag_msg:-digest \`$digest\`} to repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY"
-        echo "image-digest=$digest" >> "$GITHUB_OUTPUT"
+        echo "🐳 Pushed [image with ${tag_msg:-digest \`$digest\`}]($url) to repository \`$REPOSITORY\`" >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Set image URI
-      id: set-image-uri
+    - name: Get image URI
+      id: get-image-uri
       shell: bash
       env:
         REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}

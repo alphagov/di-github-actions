@@ -7,24 +7,29 @@ inputs:
   image-tags:
     description: "Tags associated with the targeted image, delimited by spaces or newlines"
     required: true
+  verbose:
+    description: "Print message to the step summary"
+    required: false
+    default: "true"
 outputs:
   image-exists:
     description: "Boolean indicating whether the image exists"
-    value: ${{ steps.check-image-exists.outputs.image-exists }}
+    value: ${{ steps.check-image-exists.outputs.image-digest != null }}
   image-digest:
     description: "Digest of the image if it exists"
     value: ${{ steps.check-image-exists.outputs.image-digest }}
+  image-url:
+    description: "URL of the ECR image in the AWS console"
+    value: ${{ steps.check-image-exists.outputs.image-url }}
 runs:
   using: composite
   steps:
     - name: Check image exists
+      id: check-image-exists
       shell: bash
       env:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
         CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
-      run: |
-        image_digest=$($CHECK_IMAGE)
-        [[ $image_digest ]] && image_exists=true || image_exists=false
-        echo "image-exists=$image_exists" >> "$GITHUB_OUTPUT"
-        echo "image-digest=$image_digest" >> "$GITHUB_OUTPUT"
+        VERBOSE: ${{ inputs.verbose == 'true' }}
+      run: $CHECK_IMAGE
