@@ -1,8 +1,9 @@
+# Returns two arrays with existing and missing stacks
 set -eu
 
 : "${STACK_NAMES}" # Names of the stacks to check (space or newline-delimited string)
 
-read -ra stacks < <(xargs <<< "${STACK_NAMES}")
+read -ra stacks < <(xargs <<< "$STACK_NAMES")
 
 for stack in "${stacks[@]}"; do
   if aws cloudformation describe-stacks --stack-name "$stack" > /dev/null; then
@@ -12,7 +13,5 @@ for stack in "${stacks[@]}"; do
   fi
 done
 
-results+=("[existing-stacks]='${existing_stacks[*]}'")
-results+=("[missing-stacks]='${missing_stacks[*]}'")
-
-echo "${results[*]}"
+echo "existing-stacks=${existing_stacks[*]}" >> "$GITHUB_OUTPUT"
+echo "missing-stacks=${missing_stacks[*]}" >> "$GITHUB_OUTPUT"

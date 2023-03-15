@@ -2,7 +2,7 @@ name: "Parse parameters"
 description: "Parse parameters encoded as key-value pairs delimited by '|' or newlines into a key=value pairs string"
 inputs:
   parameters:
-    description: "The parameters to parse"
+    description: "The parameters to parse, key=value pairs delimited by '|' or newlines"
     required: true
   env-var-name:
     description: "Name of an env var to store a string representation of an associative array containing the parsed params"
@@ -32,6 +32,7 @@ runs:
         PARSE: ${{ github.action_path }}/../scripts/parse-parameters.sh
       run: |
         parameters=$($PARSE)
+        read -ra parameters <<< "$parameters"
         echo "Parsed ${#parameters[@]} parameters"
         echo "parsed-parameters=${parameters[*]}" >> "$GITHUB_OUTPUT"
 

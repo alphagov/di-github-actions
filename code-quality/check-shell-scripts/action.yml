@@ -87,5 +87,5 @@ runs:
       run: |
         echo ":: Running shfmt"
         read -ra scripts <<< "$SCRIPTS"
-        shfmt -d -sr -i 2 "${scripts[@]}" | tee "$OUTPUT" ||
+        shfmt -d -sr -ci -i 2 "${scripts[@]}" | tee "$OUTPUT" ||
           (FILE=$OUTPUT TITLE="Shell formatting" LANGUAGE=diff $REPORT >> "$GITHUB_STEP_SUMMARY" && exit 1)

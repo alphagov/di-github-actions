@@ -3,7 +3,7 @@ set -eu
 delete_only_failed=${ONLY_FAILED}
 failed=()
 
-read -ra stacks < <(xargs <<< "${STACK_NAMES}")
+read -ra stacks < <(xargs <<< "$STACK_NAMES")
 
 for stack in "${stacks[@]}"; do
   if $delete_only_failed; then
@@ -12,7 +12,7 @@ for stack in "${stacks[@]}"; do
       --query "Stacks[].StackStatus" \
       --output text)
 
-    if ! [[ $stack_state =~ _FAILED$ ]]; then
+    if ! [[ $stack_state =~ _FAILED$|^ROLLBACK_COMPLETE$ ]]; then
       ignored+=("$stack")
       continue
     fi
