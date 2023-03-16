@@ -1,0 +1,14 @@
+{
+  "one": "simple-one",
+  "two": "simple-two",
+  "three": "simple-three",
+  "four": "simple-four",
+  "five": "simple-five",
+  "/path/param/one": "path-one",
+  "/path/param/two": "path-two",
+  "/path/param/three": "path-three",
+  "/path/param/four": "path-four",
+  "/path/param/deep/one": "path-deep-one",
+  "/path/param/deep/two": "path-deep-two",
+  "/path/param/deep/three": "path-deep-three"
+}

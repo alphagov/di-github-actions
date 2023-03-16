@@ -29,40 +29,10 @@ runs:
         role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Check stacks exist
-      id: check-stacks-exist
+    - name: Delete stacks
       if: ${{ inputs.stack-names != null }}
+      run: ${{ github.action_path }}/../../scripts/aws/sam/delete-stacks.sh
       shell: bash
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
-        CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/sam/check-stacks-exist.sh
-      run: $CHECK_STACKS
-
-    - name: Delete stacks
-      id: delete-stacks
-      if: ${{ steps.check-stacks-exist.outputs.existing-stacks != null }}
-      run: ${{ github.action_path }}/delete-stacks.sh
-      shell: bash
-      env:
-        STACK_NAMES: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
         ONLY_FAILED: ${{ inputs.only-if-failed == 'true' }}
-
-    - name: Report results
-      if: ${{ success() || failure() && steps.delete-stacks.outcome != 'success' }}
-      shell: bash
-      env:
-        MISSING_STACKS: ${{ steps.check-stacks-exist.outputs.missing-stacks }}
-        DELETED_STACKS: ${{ steps.delete-stacks.outputs.deleted-stacks }}
-        FAILED_STACKS: ${{ steps.delete-stacks.outputs.failed-stacks }}
-        IGNORED_STACKS: ${{ steps.delete-stacks.outputs.ignored-stacks }}
-        REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
-      run: |
-        VALUES=$MISSING_STACKS MESSAGE="Non-existent stacks" SINGLE_MESSAGE="Stack %s does not exist" $REPORT
-        
-        VALUES=$IGNORED_STACKS MESSAGE="Ignored stacks in a good state" SINGLE_MESSAGE="Ignored stack %s in a good state" $REPORT
-        
-        VALUES=$DELETED_STACKS MESSAGE="🚮 Deleted stacks" SINGLE_MESSAGE="🚮 Deleted stack %s" $REPORT |
-          tee -a "$GITHUB_STEP_SUMMARY"
-        
-        VALUES=$FAILED_STACKS MESSAGE="❌ Failed to delete stacks" SINGLE_MESSAGE="❌ Failed to delete stack %s" $REPORT |
-          tee -a "$GITHUB_STEP_SUMMARY"

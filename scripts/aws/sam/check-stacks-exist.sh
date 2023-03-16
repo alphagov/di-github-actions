@@ -1,4 +1,4 @@
-# Returns two arrays with existing and missing stacks
+# Returns a JSON object with entries for existing and missing stacks
 set -eu
 
 : "${STACK_NAMES}" # Names of the stacks to check (space or newline-delimited string)
@@ -13,5 +13,6 @@ for stack in "${stacks[@]}"; do
   fi
 done
 
-echo "existing-stacks=${existing_stacks[*]}" >> "$GITHUB_OUTPUT"
-echo "missing-stacks=${missing_stacks[*]}" >> "$GITHUB_OUTPUT"
+jq --null-input --compact-output \
+  --arg existingStacks "${existing_stacks[*]}" --arg missingStacks "${missing_stacks[*]}" \
+  '{"existing-stacks": $existingStacks, "missing-stacks": $missingStacks}'

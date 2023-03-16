@@ -1,13 +1,12 @@
 # Check if a docker image with the specified tags exists in a repository.
 # Return the image digest, if it exists, and optionally print a message to the step summary.
 set -eu
+base_dir="$(dirname "${BASH_SOURCE[0]}")"
 
 : "${REGISTRY:-}"     # ECR registry ID
 : "${REPOSITORY}"     # ECR repository name
 : "${IMAGE_TAGS}"     # Tags associated with the targeted images, delimited by spaces or newlines
 : "${VERBOSE:=false}" # Do not print a message to the step summary
-
-base_dir="$(dirname "${BASH_SOURCE[0]}")"
 
 image_digests=$("$base_dir"/get-image-digests.sh)
 [[ $image_digests ]] && read -ra images <<< "$image_digests" || exit 0

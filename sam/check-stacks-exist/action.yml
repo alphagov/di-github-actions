@@ -1,6 +1,16 @@
-name: 'Check SAM stacks exist'
-description: 'Checks whether the specified AWS SAM stack exists using the AWS credentials configured in the job'
+name: "Check SAM stacks exist"
+description: "Check whether the specified AWS SAM stacks exists"
 inputs:
+  aws-role-arn:
+    description: "AWS role ARN to assume when validating the template"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
   stack-names:
     description: 'Names of the stacks to check (space or newline-delimited string)'
     required: true
@@ -8,16 +18,24 @@ inputs:
     description: "Name of the environment variable to set in the job with the value of the existing stacks"
     required: false
   verbose:
-    description: 'Print the list of existing stacks to the job summary'
+    description: "Print the list of existing stacks to the job summary"
     required: false
-    default: 'false'
+    default: "false"
 outputs:
   existing-stacks:
-    description: 'Names of the stacks confirmed to exist (space-delimited string)'
-    value: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+    description: "Names of the stacks confirmed to exist (space-delimited string)"
+    value: ${{ fromJSON(steps.check-stacks-exist.outputs.stacks || '{}').existing-stacks }}
 runs:
   using: composite
   steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+
     - name: Check stacks exist
       id: check-stacks-exist
       if: ${{ inputs.stack-names != null }}
@@ -25,14 +43,16 @@ runs:
       env:
         STACK_NAMES: ${{ inputs.stack-names }}
         CHECK_STACKS: ${{ github.action_path }}/../../scripts/aws/sam/check-stacks-exist.sh
-      run: $CHECK_STACKS
+      run: |
+        stacks=$($CHECK_STACKS)
+        echo "stacks=$stacks" >> "$GITHUB_OUTPUT"
 
     - name: Set environment variable
-      if: ${{ inputs.set-env-var != null && steps.check-stacks-exist.outputs.existing-stacks != null }}
+      if: ${{ inputs.set-env-var != null && fromJSON(steps.check-stacks-exist.outputs.stacks).existing-stacks != null }}
       shell: bash
       env:
         ENV_VAR: ${{ inputs.set-env-var }}
-        EXISTING_STACKS: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
+        EXISTING_STACKS: ${{ fromJSON(steps.check-stacks-exist.outputs.stacks).existing-stacks }}
       run: |
         echo "Setting environment variable '$ENV_VAR'..."
         echo "$ENV_VAR=$EXISTING_STACKS" >> "$GITHUB_ENV"
@@ -41,8 +61,8 @@ runs:
       if: ${{ always() && steps.check-stacks-exist.outcome == 'success' }}
       shell: bash
       env:
-        EXISTING_STACKS: ${{ steps.check-stacks-exist.outputs.existing-stacks }}
-        MISSING_STACKS: ${{ steps.check-stacks-exist.outputs.missing-stacks }}
+        EXISTING_STACKS: ${{ fromJSON(steps.check-stacks-exist.outputs.stacks).existing-stacks }}
+        MISSING_STACKS: ${{ fromJSON(steps.check-stacks-exist.outputs.stacks).missing-stacks }}
         REPORT: ${{ github.action_path }}/../../scripts/report-step-result/print-list.sh
         VERBOSE: ${{ inputs.verbose == 'true' }}
       run: |
