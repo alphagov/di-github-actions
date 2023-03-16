@@ -4,6 +4,8 @@ set -eu
 : "${ASSOCIATIVE_ARRAY:=false}" # Whether to encode output as a string representing an associative array
 : "${LONG_FORMAT:=false}"       # Whether to encode the parameters in the form of "key=key,value='value'" strings
 
+[[ $PARAMETERS ]] || exit 0
+
 raw_parameters=$(echo -n "${PARAMETERS}")
 associative=${ASSOCIATIVE_ARRAY}
 long=${LONG_FORMAT}

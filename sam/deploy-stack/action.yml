@@ -60,15 +60,22 @@ runs:
       if: ${{ inputs.parameters != null }}
       shell: bash
       env:
-        TAGS: ${{ inputs.tags }}
-        PARAMS: ${{ inputs.parameters }}
+        PARAMETERS: ${{ inputs.parameters }}
         PARSE: ${{ github.action_path }}/../../scripts/parse-parameters.sh
       run: |
-        tags=$(PARAMETERS=$TAGS $PARSE)
-        parameters=$(PARAMETERS=$PARAMS $PARSE)
-        
-        echo "tags=$tags" >> "$GITHUB_OUTPUT"
+        parameters=$($PARSE)
         echo "parameters=$parameters" >> "$GITHUB_OUTPUT"
+
+    - name: Parse tags
+      id: parse-tags
+      if: ${{ inputs.tags != null }}
+      shell: bash
+      env:
+        PARAMETERS: ${{ inputs.tags }}
+        PARSE: ${{ github.action_path }}/../../scripts/parse-parameters.sh
+      run: |
+        tags=$($PARSE)
+        echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
     - name: Get stack name from branch
       id: get-branch-name
@@ -110,7 +117,7 @@ runs:
         S3_BUCKET: ${{ inputs.sam-deployment-bucket }}
         DISABLE_ROLLBACK: ${{ inputs.disable-rollback == 'true' }}
         PARAMETERS: ${{ steps.parse-parameters.outputs.parameters }}
-        TAGS: ${{ steps.parse-parameters.outputs.tags }}
+        TAGS: ${{ steps.parse-tags.outputs.tags }}
       run: |
         sam deploy \
           --stack-name "$STACK_NAME" \
