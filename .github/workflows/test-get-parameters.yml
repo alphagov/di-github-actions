@@ -1,0 +1,261 @@
+name: Get SSM parameters test
+
+on: pull_request
+permissions: read-all
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Install jp
+        shell: bash
+        run: |
+          echo "::group::Install packages"
+          sudo apt-get update && sudo apt-get install jp
+          echo "::endgroup::"
+
+      - name: Set up stub AWS CLI
+        run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
+
+
+      - name: Retrieve one named parameter
+        id: get-one-named-param
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: one
+
+      - name: Verify one named parameter retrieved
+        env:
+          PARAMS: ${{ steps.get-one-named-param.outputs.parameters }}
+          VALUE: ${{ fromJSON(steps.get-one-named-param.outputs.parameters).one }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 1 ]]
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "simple-one" ]]
+          [[ $VALUE == "simple-one" ]]
+
+
+      - name: Retrieve multiple named parameters
+        id: get-many-named-params
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: one two three
+
+      - name: Verify multiple named parameters retrieved
+        env:
+          PARAMS: ${{ steps.get-many-named-params.outputs.parameters }}
+          VALUE_ONE: ${{ fromJSON(steps.get-many-named-params.outputs.parameters).one }}
+          VALUE_TWO: ${{ fromJSON(steps.get-many-named-params.outputs.parameters).two }}
+          VALUE_THREE: ${{ fromJSON(steps.get-many-named-params.outputs.parameters).three }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 3 ]]
+          
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "simple-one" ]]
+          [[ $(jq --raw-output '.two' <<< "$PARAMS") == "simple-two" ]]
+          [[ $(jq --raw-output '.three' <<< "$PARAMS") == "simple-three" ]]
+          
+          [[ $VALUE_ONE == "simple-one" ]]
+          [[ $VALUE_TWO == "simple-two" ]]
+          [[ $VALUE_THREE == "simple-three" ]]
+
+
+      - name: Retrieve one named parameter with path
+        id: get-one-param-with-path
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: /path/param/one
+
+      - name: Verify one named parameter with path retrieved
+        env:
+          PARAMS: ${{ steps.get-one-param-with-path.outputs.parameters }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 1 ]]
+          [[ $(jq --raw-output '."/path/param/one"' <<< "$PARAMS") == "path-one" ]]
+
+
+      - name: Retrieve multiple named parameters with path
+        id: get-many-params-with-path
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: |
+            /path/param/one
+            /path/param/two
+            /path/param/deep/one
+
+      - name: Verify multiple named parameters with path retrieved
+        env:
+          PARAMS: ${{ steps.get-many-params-with-path.outputs.parameters }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 3 ]]
+          [[ $(jq --raw-output '."/path/param/one"' <<< "$PARAMS") == "path-one" ]]
+          [[ $(jq --raw-output '."/path/param/two"' <<< "$PARAMS") == "path-two" ]]
+          [[ $(jq --raw-output '."/path/param/deep/one"' <<< "$PARAMS") == "path-deep-one" ]]
+
+
+      - name: Retrieve multiple mixed parameters
+        id: get-many-mixed-params
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: |
+            one
+            three
+            /path/param/three
+            /path/param/deep/two
+
+      - name: Verify multiple mixed parameters retrieved
+        env:
+          PARAMS: ${{ steps.get-many-mixed-params.outputs.parameters }}
+          VALUE_ONE: ${{ fromJSON(steps.get-many-mixed-params.outputs.parameters).one }}
+          VALUE_THREE: ${{ fromJSON(steps.get-many-mixed-params.outputs.parameters).three }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 4 ]]
+          
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "simple-one" ]]
+          [[ $(jq --raw-output '.three' <<< "$PARAMS") == "simple-three" ]]
+          [[ $(jq --raw-output '."/path/param/three"' <<< "$PARAMS") == "path-three" ]]
+          [[ $(jq --raw-output '."/path/param/deep/two"' <<< "$PARAMS") == "path-deep-two" ]]
+          
+          [[ $VALUE_ONE == "simple-one" ]]
+          [[ $VALUE_THREE == "simple-three" ]]
+
+
+      - name: Retrieve parameters by path
+        id: get-params-by-path
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-path: /path/param
+
+      - name: Verify parameters retrieved by path
+        env:
+          PARAMS: ${{ steps.get-params-by-path.outputs.parameters }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 4 ]]
+          [[ $(jq --raw-output '."/path/param/one"' <<< "$PARAMS") == "path-one" ]]
+          [[ $(jq --raw-output '."/path/param/two"' <<< "$PARAMS") == "path-two" ]]
+          [[ $(jq --raw-output '."/path/param/three"' <<< "$PARAMS") == "path-three" ]]
+          [[ $(jq --raw-output '."/path/param/four"' <<< "$PARAMS") == "path-four" ]]
+
+
+      - name: Retrieve parameters by path recursively
+        id: get-params-by-path-recursive
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-path: /path/param
+          recursive: true
+
+      - name: Verify parameters retrieved by path
+        env:
+          PARAMS: ${{ steps.get-params-by-path-recursive.outputs.parameters }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 7 ]]
+          [[ $(jq --raw-output '."/path/param/one"' <<< "$PARAMS") == "path-one" ]]
+          [[ $(jq --raw-output '."/path/param/two"' <<< "$PARAMS") == "path-two" ]]
+          [[ $(jq --raw-output '."/path/param/three"' <<< "$PARAMS") == "path-three" ]]
+          [[ $(jq --raw-output '."/path/param/four"' <<< "$PARAMS") == "path-four" ]]
+          [[ $(jq --raw-output '."/path/param/deep/one"' <<< "$PARAMS") == "path-deep-one" ]]
+          [[ $(jq --raw-output '."/path/param/deep/two"' <<< "$PARAMS") == "path-deep-two" ]]
+          [[ $(jq --raw-output '."/path/param/deep/three"' <<< "$PARAMS") == "path-deep-three" ]]
+
+
+      - name: Trim path
+        id: trim-param-path
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-path: /path/param/
+          trim-path: true
+
+      - name: Verify parameters retrieved by path
+        env:
+          PARAMS: ${{ steps.trim-param-path.outputs.parameters }}
+          VALUE_ONE: ${{ fromJSON(steps.trim-param-path.outputs.parameters).one }}
+          VALUE_TWO: ${{ fromJSON(steps.trim-param-path.outputs.parameters).two }}
+          VALUE_THREE: ${{ fromJSON(steps.trim-param-path.outputs.parameters).three }}
+          VALUE_FOUR: ${{ fromJSON(steps.trim-param-path.outputs.parameters).four }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 4 ]]
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "path-one" ]]
+          [[ $(jq --raw-output '.two' <<< "$PARAMS") == "path-two" ]]
+          [[ $(jq --raw-output '.three' <<< "$PARAMS") == "path-three" ]]
+          [[ $(jq --raw-output '.four' <<< "$PARAMS") == "path-four" ]]
+
+          [[ $VALUE_ONE == "path-one" ]]
+          [[ $VALUE_TWO == "path-two" ]]
+          [[ $VALUE_THREE == "path-three" ]]
+          [[ $VALUE_FOUR == "path-four" ]]
+
+
+      - name: Merge named and path parameters
+        id: merge-mixed-params
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: four five
+          parameter-path: /path/param/deep/
+
+      - name: Verify named and path parameters merged
+        env:
+          PARAMS: ${{ steps.merge-mixed-params.outputs.parameters }}
+          VALUE_FOUR: ${{ fromJSON(steps.merge-mixed-params.outputs.parameters).four }}
+          VALUE_FIVE: ${{ fromJSON(steps.merge-mixed-params.outputs.parameters).five }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 5 ]]
+          
+          [[ $(jq --raw-output '.four' <<< "$PARAMS") == "simple-four" ]]
+          [[ $(jq --raw-output '.five' <<< "$PARAMS") == "simple-five" ]]
+          [[ $(jq --raw-output '."/path/param/deep/one"' <<< "$PARAMS") == "path-deep-one" ]]
+          [[ $(jq --raw-output '."/path/param/deep/two"' <<< "$PARAMS") == "path-deep-two" ]]
+          [[ $(jq --raw-output '."/path/param/deep/three"' <<< "$PARAMS") == "path-deep-three" ]]
+          
+          [[ $VALUE_FOUR == "simple-four" ]]
+          [[ $VALUE_FIVE == "simple-five" ]]
+
+
+      - name: Overwrite conflicting keys
+        id: merge-param-keys
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: one two three four five
+          parameter-path: /path/param/
+          recursive: true
+          trim-path: true
+
+      - name: Verify conflicting keys overwritten
+        env:
+          PARAMS: ${{ steps.merge-param-keys.outputs.parameters }}
+          VALUE_ONE: ${{ fromJSON(steps.merge-param-keys.outputs.parameters).one }}
+          VALUE_TWO: ${{ fromJSON(steps.merge-param-keys.outputs.parameters).two }}
+          VALUE_THREE: ${{ fromJSON(steps.merge-param-keys.outputs.parameters).three }}
+          VALUE_FOUR: ${{ fromJSON(steps.merge-param-keys.outputs.parameters).four }}
+          VALUE_FIVE: ${{ fromJSON(steps.merge-param-keys.outputs.parameters).five }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 5 ]]
+          
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "path-deep-one" ]]
+          [[ $(jq --raw-output '.two' <<< "$PARAMS") == "path-deep-two" ]]
+          [[ $(jq --raw-output '.three' <<< "$PARAMS") == "path-deep-three" ]]
+          [[ $(jq --raw-output '.four' <<< "$PARAMS") == "path-four" ]]
+          [[ $(jq --raw-output '.five' <<< "$PARAMS") == "simple-five" ]]
+          
+          [[ $VALUE_ONE == "path-deep-one" ]]
+          [[ $VALUE_TWO == "path-deep-two" ]]
+          [[ $VALUE_THREE == "path-deep-three" ]]
+          [[ $VALUE_FOUR == "path-four" ]]
+          [[ $VALUE_FIVE == "simple-five" ]]
+
+      - name: Return valid empty JSON object when no parameters found
+        id: return-empty-object
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: six seven eight nine
+          parameter-path: /some/param/path/
+
+      - name: Verify empty object returned
+        env:
+          PARAMS: ${{ steps.return-empty-object.outputs.parameters }}
+          EMPTY_VALUE: ${{ fromJSON(steps.return-empty-object.outputs.parameters).six }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 0 ]]
+          [[ $PARAMS == "{}" ]]
+          [[ -z $EMPTY_VALUE ]]
