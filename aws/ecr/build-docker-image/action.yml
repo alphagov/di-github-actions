@@ -67,6 +67,7 @@ runs:
         role-to-assume: ${{ inputs.aws-role-arn }}
         role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
 
     - name: Login to ECR
       if: ${{ inputs.registry == null }}
