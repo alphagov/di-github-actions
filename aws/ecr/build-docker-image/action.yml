@@ -62,7 +62,7 @@ runs:
   steps:
     - name: Assume AWS Role
       if: ${{ inputs.aws-role-arn != null }}
-      uses: aws-actions/configure-aws-credentials@v1-node16
+      uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
         role-session-name: ${{ inputs.aws-session-name }}
