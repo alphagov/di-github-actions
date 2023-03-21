@@ -11,13 +11,6 @@ jobs:
       - name: Pull repository
         uses: actions/checkout@v3
 
-      - name: Install jp
-        shell: bash
-        run: |
-          echo "::group::Install packages"
-          sudo apt-get update && sudo apt-get install jp
-          echo "::endgroup::"
-
       - name: Set up stub AWS CLI
         run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
 
@@ -250,6 +243,7 @@ jobs:
         with:
           parameter-names: six seven eight nine
           parameter-path: /some/param/path/
+          fail-if-params-missing: false
 
       - name: Verify empty object returned
         env:
@@ -259,3 +253,60 @@ jobs:
           [[ $(jq length <<< "$PARAMS") -eq 0 ]]
           [[ $PARAMS == "{}" ]]
           [[ -z $EMPTY_VALUE ]]
+
+
+      - name: Return existing named params when some are missing
+        id: some-named-params-missing
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: one two ten
+          parameter-path: /some/param/path/
+          fail-if-params-missing: false
+
+      - name: Verify existing named params returned
+        env:
+          PARAMS: ${{ steps.some-named-params-missing.outputs.parameters }}
+          VALUE_ONE: ${{ fromJSON(steps.some-named-params-missing.outputs.parameters).one }}
+          VALUE_TWO: ${{ fromJSON(steps.some-named-params-missing.outputs.parameters).two }}
+        run: |
+          [[ $(jq length <<< "$PARAMS") -eq 2 ]]
+          
+          [[ $(jq --raw-output '.one' <<< "$PARAMS") == "simple-one" ]]
+          [[ $(jq --raw-output '.two' <<< "$PARAMS") == "simple-two" ]]
+          
+          [[ $VALUE_ONE == "simple-one" ]]
+          [[ $VALUE_TWO == "simple-two" ]]
+
+
+      - name: Exit with error if named parameters are missing
+        id: named-params-missing
+        continue-on-error: true
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-names: one two ten
+          fail-if-params-missing: true
+
+      - name: Verify error status if named parameters are missing
+        env:
+          STATUS: ${{ steps.named-params-missing.outcome }}
+          PARAMS: ${{ steps.named-params-missing.outputs.parameters }}
+        run: |
+          [[ $STATUS == failure ]]          
+          [[ -z $PARAMS ]]
+
+
+      - name: Exit with error if path parameters are missing
+        id: path-params-missing
+        continue-on-error: true
+        uses: ./aws/ssm/get-parameters
+        with:
+          parameter-path: /some/param/path/
+          fail-if-params-missing: true
+
+      - name: Verify error status if named parameters are missing
+        env:
+          STATUS: ${{ steps.path-params-missing.outcome }}
+          PARAMS: ${{ steps.path-params-missing.outputs.parameters }}
+        run: |
+          [[ $STATUS == failure ]]          
+          [[ -z $PARAMS ]]
