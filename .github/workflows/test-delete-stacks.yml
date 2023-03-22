@@ -14,6 +14,13 @@ jobs:
       - name: Pull repository
         uses: actions/checkout@v3
 
+      - name: Install jp
+        shell: bash
+        run: |
+          echo "::group::Install packages"
+          sudo apt-get update && sudo apt-get install jp
+          echo "::endgroup::"
+
       - name: Set up stub AWS CLI
         run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
 

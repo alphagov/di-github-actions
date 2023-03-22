@@ -22,8 +22,8 @@ if [[ ${1:-} == cloudformation && ${2:-} == describe-stacks ]]; then
     stacks=$(jq '{Stacks: [.]}' <<< "$stack_info")
   fi
 
-  [[ -z ${query:-} ]] || stacks=$(jq ".$query" <<< "$stacks")
-  [[ ${output:-} != text ]] || stacks=$(jq --raw-output <<< "$stacks")
+  [[ ${query:-} ]] && stacks=$(jp "$query" <<< "$stacks")
+  [[ ${output:-} == text ]] && stacks=$(jq --raw-output '.[]?' <<< "$stacks")
 
   echo "$stacks"
   exit 0
@@ -42,7 +42,6 @@ if [[ ${1:-} == ssm ]] && [[ ${2:-} == get-parameters || ${2:-} == get-parameter
         ;;
       --path) shift && parameter_path=$1 ;;
       --recursive) recursive=true ;;
-      --query) shift && query=$1 ;;
       --output) shift && output=$1 ;;
     esac
     shift
@@ -50,7 +49,7 @@ if [[ ${1:-} == ssm ]] && [[ ${2:-} == get-parameters || ${2:-} == get-parameter
 
   if [[ ${names[*]} ]]; then
     names=("${names[@]/#/\"}") && names=("${names[@]/%/\"}") && keys="$(IFS="," && echo "${names[*]}")"
-    params=$(jq "to_entries | map(select(.key == ($keys)))" "$parameters")
+    params=$(jq "{$keys} | to_entries" "$parameters")
   fi
 
   if [[ ${parameter_path:-} ]]; then
@@ -59,10 +58,13 @@ if [[ ${1:-} == ssm ]] && [[ ${2:-} == get-parameters || ${2:-} == get-parameter
       'to_entries | map(select(.key | startswith($path)))'"${filter:-}" "$parameters")
   fi
 
-  params=$(jq '{Parameters: map({Name: .key, Value: .value})}' <<< "$params")
+  invalid_params=$(jq 'map(select(.value == null) | .key)' <<< "$params")
+  valid_params=$(jq 'map(select(.value != null)) | map({Name: .key, Value: .value})' <<< "$params")
 
-  [[ -z ${query:-} ]] || params=$(jp "$query" <<< "$params")
-  [[ ${output:-} != text ]] || params=$(jq --raw-output <<< "$params")
+  params=$(jq --null-input --argjson params "$valid_params" --argjson invalidParams "$invalid_params" \
+    '{Parameters: $params, InvalidParameters: $invalidParams}')
+
+  [[ ${output:-} == text ]] && params=$(jq --raw-output '.[]?' <<< "$params")
 
   echo "$params"
   exit 0

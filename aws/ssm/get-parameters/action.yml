@@ -25,6 +25,10 @@ inputs:
     description: "Exclude the parameter hierarchy from the object keys (the keys will be the part after the last /)"
     required: false
     default: "false"
+  fail-if-params-missing:
+    description: "Exit with an error status if any parameters are not present; otherwise return empty values"
+    required: false
+    default: "true"
 outputs:
   parameters:
     description: "A JSON object with parameter values keyed by their names"
@@ -46,14 +50,18 @@ runs:
       shell: bash
       env:
         PARAM_NAMES: ${{ inputs.parameter-names }}
+        ERROR_STATUS: ${{ inputs.fail-if-params-missing == 'true' }}
       run: |
         read -ra param_names < <(xargs <<< "$PARAM_NAMES")
         
-        echo "parameters=" \
-          "$(aws ssm get-parameters \
-            --names "${param_names[@]}" \
-            --query "Parameters[].{name: Name, value: Value}" \
-            --output json | jq --compact-output)" >> "$GITHUB_OUTPUT"
+        params=$(aws ssm get-parameters --names "${param_names[@]}" --output json)
+        values=$(jq --compact-output --join-output '.Parameters[] | {Name, Value}' <<< "$params")
+        echo "parameters=$values" >> "$GITHUB_OUTPUT"
+        
+        if $ERROR_STATUS && missing=$(jq --raw-output --exit-status '.InvalidParameters[]' <<< "$params" | xargs); then
+          echo "Parameters not found: $missing"
+          exit 1
+        fi
 
     - name: Get parameters by path
       id: get-path-params
@@ -62,17 +70,20 @@ runs:
       env:
         PARAM_PATH: ${{ inputs.parameter-path }}
         RECURSIVE: ${{ inputs.recursive == 'true' }}
+        ERROR_STATUS: ${{ inputs.fail-if-params-missing == 'true' }}
       run: |
-        echo "parameters=" \
-          "$(aws ssm get-parameters-by-path \
-            --path "$PARAM_PATH" \
-            "$($RECURSIVE && echo "--recursive" || echo "--no-recursive")" \
-            --query "Parameters[].{name: Name, value: Value}" \
-            --output json | jq --compact-output)" >> "$GITHUB_OUTPUT"
+        $RECURSIVE && recursive="--recursive"
+        
+        if ! params=$(aws ssm get-parameters-by-path --path "$PARAM_PATH" ${recursive:-} --output json |
+          jq --compact-output --join-output --exit-status '.Parameters[] | {Name, Value}') && $ERROR_STATUS; then
+          echo "No parameters found with the path '$PARAM_PATH'"
+          exit 1
+        fi
+        
+        echo "parameters=$params" >> "$GITHUB_OUTPUT"
 
     - name: Get parameter values
       id: get-parameters
-      if: ${{ join(steps.*.outputs.parameters, '') != null }}
       shell: bash
       env:
         PARAMETERS: ${{ join(steps.*.outputs.parameters, '') }}
@@ -81,5 +92,5 @@ runs:
       run: |
         $TRIM_PATH && trim_filter='|sub(".*\/"; "")'
         parameters=$(jq --slurp --compact-output --exit-status \
-          "flatten | map({(.name${trim_filter:-}): .value}) | add" <<< "$PARAMETERS") || parameters="{}"
+          "flatten | map({(.Name${trim_filter:-}): .Value}) | add" <<< "$PARAMETERS") || parameters="{}"
         echo "parameters=$parameters" >> "$GITHUB_OUTPUT"
