@@ -53,15 +53,14 @@ runs:
         ERROR_STATUS: ${{ inputs.fail-if-params-missing == 'true' }}
       run: |
         read -ra param_names < <(xargs <<< "$PARAM_NAMES")
-        
         params=$(aws ssm get-parameters --names "${param_names[@]}" --output json)
-        values=$(jq --compact-output --join-output '.Parameters[] | {Name, Value}' <<< "$params")
-        echo "parameters=$values" >> "$GITHUB_OUTPUT"
         
         if $ERROR_STATUS && missing=$(jq --raw-output --exit-status '.InvalidParameters[]' <<< "$params" | xargs); then
           echo "Parameters not found: $missing"
           exit 1
         fi
+        
+        echo "parameters=$(jq --compact-output '[.Parameters[] | {Name, Value}]' <<< "$params")" >> "$GITHUB_OUTPUT"
 
     - name: Get parameters by path
       id: get-path-params
