@@ -122,7 +122,7 @@ runs:
         fi
         
         read -ra files <<< "${files:-$FILES}"
-        filtered_files=$(grep -El --regexp='^AWSTemplateFormatVersion: ["']?[[:digit:]-]+["']?' "${files[@]}") ||
+        filtered_files=$(grep -El --regexp="^AWSTemplateFormatVersion: [\"']?[[:digit:]-]+[\"']?" "${files[@]}") ||
           case $? in 1) echo "No files to check" && exit 0 ;; *) exit $? ;; esac
         
         mapfile -t files <<< "$filtered_files"
