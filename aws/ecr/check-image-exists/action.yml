@@ -1,6 +1,19 @@
 name: "Check image exists"
 description: "Check if the image with the specified tags exists in the queried ECR repo"
 inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when authenticating to ECR"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  aws-session-name:
+    description: "Override the default AWS session name"
+    required: false
+  registry:
+    description: "Registry which contains the specified repository"
+    required: false
   repository:
     description: "ECR repository name"
     required: true
@@ -24,12 +37,27 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
+
+    - name: Login to ECR
+      if: ${{ inputs.registry == null }}
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
     - name: Check image exists
       id: check-image-exists
       shell: bash
       env:
+        REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
-        CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
         VERBOSE: ${{ inputs.verbose == 'true' }}
+        CHECK_IMAGE: ${{ github.action_path }}/../../../scripts/aws/ecr/check-image-exists.sh
       run: $CHECK_IMAGE
