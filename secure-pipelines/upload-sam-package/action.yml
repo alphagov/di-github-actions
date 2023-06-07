@@ -1,0 +1,47 @@
+name: "Upload SAM package to secure pipelines"
+description: "Upload a SAM application package to an S3 bucket for deployment with secure pipelines"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when uploading the package to S3"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  artifact-bucket-name:
+    description: "The name of the bucket to upload the SAM artifact to"
+    required: true
+  signing-profile-name:
+    description: "The name of the profile to use for code signing"
+    required: true
+  template:
+    description: "Filepath of the SAM application template"
+    required: false
+  working-directory:
+    description: "The working directory containing the SAM app"
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Validate template
+      shell: bash
+      env:
+        TEMPLATE: ${{ inputs.template }}
+      run: |
+        sam validate ${TEMPLATE:+--template $TEMPLATE}
+        sam validate ${TEMPLATE:+--template $TEMPLATE} --lint
+
+    - name: Upload package
+      uses: alphagov/di-devplatform-upload-action@v3.2
+      with:
+        signing-profile-name: ${{ inputs.signing-profile-name }}
+        artifact-bucket-name: ${{ inputs.artifact-bucket-name }}
+        working-directory: ${{ inputs.working-directory }}
+        template-file: ${{ inputs.template }}
