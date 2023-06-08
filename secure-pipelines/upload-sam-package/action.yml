@@ -14,9 +14,17 @@ inputs:
   signing-profile-name:
     description: "The name of the profile to use for code signing"
     required: true
+  artifact-name:
+    description: "Name of the artifact containing the built SAM application"
+    required: false
   template:
     description: "Filepath of the SAM application template"
     required: false
+    default: template.yaml
+  pull-repository:
+    description: "Pull the repository before uploading the package"
+    required: false
+    default: "true"
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
@@ -24,19 +32,30 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Pull repository
+      if: ${{ inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
+
+    - name: Get distribution artifact
+      if: ${{ inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+
     - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Validate template
+    - name: Validate SAM template
       shell: bash
       env:
         TEMPLATE: ${{ inputs.template }}
-      run: |
-        sam validate ${TEMPLATE:+--template $TEMPLATE}
-        sam validate ${TEMPLATE:+--template $TEMPLATE} --lint
+        AWS_REGION: ${{ inputs.aws-region }}
+        VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
+      run: $VALIDATE
 
     - name: Upload package
       uses: alphagov/di-devplatform-upload-action@v3.2
