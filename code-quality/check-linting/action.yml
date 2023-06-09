@@ -1,22 +1,22 @@
-name: 'Check linting'
-description: 'Run Prettier and/or ESLint and report results to the job summary if there are failing checks'
+name: "Check linting"
+description: "Run Prettier, ESLint and other linters, and report results to the job summary if there are failing checks"
 inputs:
   run-prettier:
-    description: 'Whether to run Prettier'
+    description: "Whether to run Prettier"
     required: false
-    default: 'true'
+    default: "true"
   run-eslint:
-    description: 'Whether to run ESLint'
+    description: "Whether to run ESLint"
     required: false
-    default: 'true'
+    default: "true"
   run-cfn-lint:
-    description: 'Whether to run AWS CloudFormation Linter'
+    description: "Whether to run AWS CloudFormation Linter"
     required: false
-    default: 'true'
+    default: "true"
   error-on-warnings:
-    description: 'Treat warnings as errors'
+    description: "Treat warnings as errors"
     required: false
-    default: 'true'
+    default: "true"
 runs:
   using: composite
   steps:

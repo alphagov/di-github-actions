@@ -1,60 +1,73 @@
 name: "Build an AWS SAM application"
 description: "Validates and builds the specified SAM application. The built artifact is found in the .aws-sam directory"
 inputs:
-  aws-role-arn:
-    description: "AWS role ARN to assume when validating the template"
-    required: false
   aws-region:
-    description: "AWS region to use"
+    description: "AWS region to use when validating the template"
     required: false
     default: eu-west-2
-  aws-session-name:
-    description: "Override the default AWS session name"
-    required: false
-  sam-template-file:
-    description: "Name of the SAM template file to use"
+  template:
+    description: "Path of the SAM template file to use"
     required: false
   base-dir:
     description: "Resolve relative paths to lambda functions' source code with respect to this folder"
+    required: false
+  artifact-name:
+    description: "Name of the artifact to upload"
+    required: false
+  additional-artifact-paths:
+    description: "Additional paths to include in the artifact apart from the application"
     required: false
   enable-beta-features:
     description: "Use SAM beta features when building an application"
     required: false
     default: "false"
-  disable-cache:
-    description: "Set to true to build without the cache"
+  cache-key:
+    description: "Key to use for caching SAM dependencies. Caching is disabled if the key is not provided."
     required: false
-    default: "false"
   disable-parallel:
     description: "Set to true to build the resources sequentially"
     required: false
     default: "false"
+  pull-repository:
+    description: "Whether to pull the repository before building"
+    required: false
+    default: "true"
+outputs:
+  artifact-name:
+    description: "Pass through the artifact name"
+    value: ${{ inputs.artifact-name }}
 runs:
   using: composite
   steps:
-    - name: Assume AWS Role
-      if: ${{ inputs.aws-role-arn }}
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        role-to-assume: ${{ inputs.aws-role-arn }}
-        role-session-name: ${{ inputs.aws-session-name }}
-        aws-region: ${{ inputs.aws-region }}
+    - name: Pull repository
+      if: ${{ inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
 
     - name: Validate SAM template
       shell: bash
       env:
-        TEMPLATE_FILE: ${{ inputs.sam-template-file }}
-      run: |
-        sam validate ${TEMPLATE_FILE:+--template-file "$TEMPLATE_FILE"}
-        sam validate ${TEMPLATE_FILE:+--template-file "$TEMPLATE_FILE"} --lint
+        AWS_REGION: ${{ inputs.aws-region }}
+        TEMPLATE: ${{ inputs.template }}
+        VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
+      run: $VALIDATE
+
+    - name: Cache SAM dependencies
+      if: ${{ inputs.cache-key != null }}
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-sam-${{ inputs.cache-key }}-${{ hashFiles('**/package-lock.json', inputs.template) }}
+        restore-keys: ${{ runner.os }}-sam-${{ inputs.cache-key }}-
+        path: |
+          .aws-sam
+          !.aws-sam/build
 
     - name: Build SAM Application
       shell: bash
       env:
-        TEMPLATE_FILE: ${{ inputs.sam-template-file }}
+        TEMPLATE_FILE: ${{ inputs.template }}
         BETA_FEATURES: ${{ inputs.enable-beta-features == 'true' }}
         PARALLEL: ${{ inputs.disable-parallel == 'false' }}
-        CACHE: ${{ inputs.disable-cache == 'false' }}
+        CACHE: ${{ inputs.cache-key != 'null' }}
         BASE_DIR: ${{ inputs.base-dir }}
       run: |
         sam build \
@@ -63,3 +76,13 @@ runs:
           "$($PARALLEL && echo "--parallel")" \
           "$($CACHE && echo "--cached" || echo "--no-cached")" \
           "$($BETA_FEATURES && echo "--beta-features")"
+
+    - name: Archive SAM distribution artifact
+      if: ${{ inputs.artifact-name != null }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+        retention-days: 3
+        path: |
+          .aws-sam/build
+          ${{ inputs.additional-artifact-paths }}
