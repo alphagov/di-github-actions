@@ -28,6 +28,13 @@ inputs:
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
+  pipeline-name:
+    description: "The name of the deployment pipeline"
+    required: false
+outputs:
+  pipeline-url:
+    description: "The URL of the pipeline consuming the uploaded artifact"
+    value: ${{ steps.get-pipeline-url.outputs.pipeline-url }}
 runs:
   using: composite
   steps:
@@ -63,3 +70,14 @@ runs:
         artifact-bucket-name: ${{ inputs.artifact-bucket-name }}
         working-directory: ${{ inputs.working-directory }}
         template-file: ${{ inputs.template }}
+
+    - name: Get pipeline URL
+      id: get-pipeline-url
+      if: ${{ inputs.pipeline-name != null }}
+      shell: bash
+      env:
+        REGION: ${{ inputs.aws-region }}
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+      run: |
+        url="https://${REGION}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${PIPELINE_NAME}/view"
+        echo "pipeline-url=$url" >> "$GITHUB_OUTPUT"
