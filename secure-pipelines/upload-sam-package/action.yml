@@ -35,6 +35,9 @@ outputs:
   pipeline-url:
     description: "The URL of the pipeline consuming the uploaded artifact"
     value: ${{ steps.get-pipeline-url.outputs.pipeline-url }}
+  artifact-version:
+    description: "Version ID of the uploaded artifact"
+    value: ${{ steps.get-version.outputs.version }}
 runs:
   using: composite
   steps:
@@ -70,6 +73,16 @@ runs:
         artifact-bucket-name: ${{ inputs.artifact-bucket-name }}
         working-directory: ${{ inputs.working-directory }}
         template-file: ${{ inputs.template }}
+
+    - name: Get uploaded artifact version ID
+      id: get-version
+      shell: bash
+      env:
+        BUCKET: ${{ inputs.artifact-bucket-name }}
+      run: |
+        version=$(aws s3api head-object --bucket "$BUCKET" --key template.zip | jq '{VersionId, Metadata}')
+        [[ $(jq --raw-output '.Metadata.commitsha' <<< "$version") != "$GITHUB_SHA" ]] && echo "Invalid SHA" && exit 1
+        echo "version=$(jq --raw-output '.VersionId' <<< "$version")" >> "$GITHUB_OUTPUT"
 
     - name: Get pipeline URL
       id: get-pipeline-url
