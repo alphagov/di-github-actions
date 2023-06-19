@@ -28,7 +28,6 @@ inputs:
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
-    default: .
 runs:
   using: composite
   steps:
@@ -58,7 +57,7 @@ runs:
       run: $VALIDATE
 
     - name: Upload package
-      uses: alphagov/di-devplatform-upload-action@v3.2
+      uses: alphagov/di-devplatform-upload-action@v3.3
       with:
         signing-profile-name: ${{ inputs.signing-profile-name }}
         artifact-bucket-name: ${{ inputs.artifact-bucket-name }}
