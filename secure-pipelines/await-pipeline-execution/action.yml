@@ -1,0 +1,68 @@
+name: "Await pipeline execution for artifact version"
+description: "Wait for a pipeline to finish its execution for the given artifact version"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when awaiting pipeline execution"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  pipeline-name:
+    description: "Name of the pipeline to await"
+    required: true
+  artifact-version:
+    description: "Version of the artifact that triggered the execution"
+    required: true
+  trigger-timeout:
+    description: "Maximum number of minutes to wait for the execution to start"
+    required: false
+    default: "5"
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Get execution ID
+      id: get-execution-id
+      shell: bash
+      env:
+        PIPELINE: ${{ inputs.pipeline-name }}
+        VERSION: ${{ inputs.artifact-version }}
+        TIMEOUT_MINUTES: ${{ inputs.trigger-timeout }}
+      run: |
+        timeout=$((TIMEOUT_MINUTES * 60)) elapsed=0
+        echo -n "Waiting for the pipeline '$PIPELINE' to start execution..." 
+        query="pipelineExecutionSummaries[?contains(sourceRevisions[].revisionId, '$VERSION')]|[0].pipelineExecutionId"
+        
+        while [[ ${id:-None} == None ]] && [[ $elapsed -lt $timeout ]]; do
+          id=$(aws codepipeline list-pipeline-executions --pipeline-name "$PIPELINE" --query "$query" --output text)
+          echo -n "." && elapsed=$((elapsed + 5)) && sleep 5
+        done
+        
+        [[ ${id:-} ]] && echo "execution-id=$id" >> "$GITHUB_OUTPUT" && exit
+        echo "Pipeline \`$PIPELINE\` didn't start execution within the $TIMEOUT_MINUTES minute timeout" |
+          tee "$GITHUB_STEP_SUMMARY" && exit 1
+
+    - name: Await pipeline execution
+      shell: bash
+      env:
+        PIPELINE: ${{ inputs.pipeline-name }}
+        EXECUTION: ${{ steps.get-execution-id.outputs.execution-id }}
+      run: |
+        echo -n "Waiting for the pipeline '$PIPELINE' to finish execution..."
+        query="pipelineExecutionSummaries[?pipelineExecutionId=='$EXECUTION'].status"
+        
+        while [[ ${status:-InProgress} == InProgress ]]; do
+          status=$(aws codepipeline list-pipeline-executions --pipeline-name "$PIPELINE" --query "$query" --output text)
+          echo -n "." && sleep 5
+        done
+        
+        [[ $status == Succeeded ]] && exit
+        echo "Pipeline \`$PIPELINE\` finished execution with the status \`$status\`" |
+          tee "$GITHUB_STEP_SUMMARY" && exit 1

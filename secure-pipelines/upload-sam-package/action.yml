@@ -57,6 +57,7 @@ runs:
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
         aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
 
     - name: Validate SAM template
       shell: bash
