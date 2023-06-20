@@ -14,10 +14,12 @@ inputs:
   artifact-version:
     description: "Version of the artifact that triggered the execution"
     required: true
-  trigger-timeout:
-    description: "Maximum number of minutes to wait for the execution to start"
+  started-after:
+    description: "Only return an execution that started after the given timestamp"
     required: false
-    default: "5"
+  trigger-timeout:
+    description: "The maximum number of minutes to wait for the execution to start"
+    required: false
 runs:
   using: composite
   steps:
@@ -32,37 +34,17 @@ runs:
       id: get-execution-id
       shell: bash
       env:
-        PIPELINE: ${{ inputs.pipeline-name }}
-        VERSION: ${{ inputs.artifact-version }}
-        TIMEOUT_MINUTES: ${{ inputs.trigger-timeout }}
-      run: |
-        timeout=$((TIMEOUT_MINUTES * 60)) elapsed=0
-        echo -n "Waiting for the pipeline '$PIPELINE' to start execution..." 
-        query="pipelineExecutionSummaries[?contains(sourceRevisions[].revisionId, '$VERSION')]|[0].pipelineExecutionId"
-        
-        while [[ ${id:-None} == None ]] && [[ $elapsed -lt $timeout ]]; do
-          id=$(aws codepipeline list-pipeline-executions --pipeline-name "$PIPELINE" --query "$query" --output text)
-          echo -n "." && elapsed=$((elapsed + 5)) && sleep 5
-        done
-        
-        [[ ${id:-} ]] && echo "execution-id=$id" >> "$GITHUB_OUTPUT" && exit
-        echo "Pipeline \`$PIPELINE\` didn't start execution within the $TIMEOUT_MINUTES minute timeout" |
-          tee "$GITHUB_STEP_SUMMARY" && exit 1
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
+        REVISION_ID: ${{ inputs.artifact-version }}
+        STARTED_AFTER: ${{ inputs.started-after }}
+        EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
+      run: $EXECUTION_ID
 
     - name: Await pipeline execution
       shell: bash
       env:
-        PIPELINE: ${{ inputs.pipeline-name }}
-        EXECUTION: ${{ steps.get-execution-id.outputs.execution-id }}
-      run: |
-        echo -n "Waiting for the pipeline '$PIPELINE' to finish execution..."
-        query="pipelineExecutionSummaries[?pipelineExecutionId=='$EXECUTION'].status"
-        
-        while [[ ${status:-InProgress} == InProgress ]]; do
-          status=$(aws codepipeline list-pipeline-executions --pipeline-name "$PIPELINE" --query "$query" --output text)
-          echo -n "." && sleep 5
-        done
-        
-        [[ $status == Succeeded ]] && exit
-        echo "Pipeline \`$PIPELINE\` finished execution with the status \`$status\`" |
-          tee "$GITHUB_STEP_SUMMARY" && exit 1
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        EXECUTION_ID: ${{ steps.get-execution-id.outputs.execution-id }}
+        AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
+      run: $AWAIT
