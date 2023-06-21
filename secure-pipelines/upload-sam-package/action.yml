@@ -28,38 +28,42 @@ inputs:
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
-  pipeline-name:
-    description: "The name of the deployment pipeline"
+  force-upload:
+    description: "Upload a new package even if the artifact for the git SHA is already present in the S3 bucket"
     required: false
 outputs:
-  pipeline-url:
-    description: "The URL of the pipeline consuming the uploaded artifact"
-    value: ${{ steps.get-pipeline-url.outputs.pipeline-url }}
   artifact-version:
     description: "Version ID of the uploaded artifact"
-    value: ${{ steps.get-version.outputs.artifact-version }}
+    value: ${{ steps.get-uploaded-version.outputs.artifact-version || check-artifact-exists.outputs.artifact-version }}
+  upload-timestamp:
+    description: "If the artifact has been uploaded, the timestamp it was last modified"
+    value: ${{ steps.get-uploaded-version.outputs.artifact-timestamp }}
 runs:
   using: composite
   steps:
-    - name: Pull repository
-      if: ${{ inputs.pull-repository == 'true' }}
-      uses: actions/checkout@v3
-
-    - name: Get distribution artifact
-      if: ${{ inputs.artifact-name != null }}
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ inputs.artifact-name }}
-
     - name: Assume AWS Role
       if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
         aws-region: ${{ inputs.aws-region }}
-        mask-aws-account-id: false
+
+    - name: Check artifact exists
+      if: ${{ inputs.force-upload != 'true' }}
+      id: check-artifact-exists
+      shell: bash
+      env:
+        ERROR_STATUS: "false"
+        ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION
+
+    - name: Pull repository
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
 
     - name: Validate SAM template
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
       shell: bash
       env:
         TEMPLATE: ${{ inputs.template }}
@@ -67,7 +71,14 @@ runs:
         VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
       run: $VALIDATE
 
+    - name: Get distribution artifact
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null && inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+
     - name: Upload package
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
       uses: alphagov/di-devplatform-upload-action@v3.3
       with:
         signing-profile-name: ${{ inputs.signing-profile-name }}
@@ -76,19 +87,10 @@ runs:
         template-file: ${{ inputs.template }}
 
     - name: Get artifact version
-      id: get-version
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      id: get-uploaded-version
       shell: bash
       env:
         ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
-        VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
-      run: $VERSION
-
-    - name: Get pipeline URL
-      id: get-pipeline-url
-      if: ${{ inputs.pipeline-name != null }}
-      shell: bash
-      env:
-        REGION: ${{ inputs.aws-region }}
-        PIPELINE_NAME: ${{ inputs.pipeline-name }}
-        PIPELINE_URL: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-pipeline-url.sh
-      run: $PIPELINE_URL
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION

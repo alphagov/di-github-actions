@@ -12,14 +12,18 @@ inputs:
     description: "Name of the pipeline to await"
     required: true
   artifact-version:
-    description: "Version of the artifact that triggered the execution"
-    required: true
-  started-after:
-    description: "Only return an execution that started after the given timestamp"
+    description: "Uploaded artifact version that triggered an execution. Trigger a new pipeline execution if not set."
+    required: false
+  upload-timestamp:
+    description: "The timestamp the artifact was uploaded. Trigger a new pipeline execution if not set."
     required: false
   trigger-timeout:
     description: "The maximum number of minutes to wait for the execution to start"
     required: false
+  trigger-control:
+    description: "Whether to disable pipeline artifact upload trigger and let this action trigger deployment"
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -30,21 +34,47 @@ runs:
         role-to-assume: ${{ inputs.aws-role-arn }}
         aws-region: ${{ inputs.aws-region }}
 
+    - name: Enable deployment stage
+      if: ${{ inputs.trigger-control == 'true' }}
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+      run: aws codepipeline enable-stage-transition --pipeline-name "$PIPELINE_NAME" \
+        --stage-name Deploy --transition-type Inbound
+
     - name: Get execution ID
+      if: ${{ inputs.artifact-version != null && inputs.upload-timestamp != null }}
       id: get-execution-id
       shell: bash
       env:
         PIPELINE_NAME: ${{ inputs.pipeline-name }}
         TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
         REVISION_ID: ${{ inputs.artifact-version }}
-        STARTED_AFTER: ${{ inputs.started-after }}
+        STARTED_AFTER: ${{ inputs.upload-timestamp }}
         EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
       run: $EXECUTION_ID
+
+    - name: Start pipeline execution
+      if: ${{ steps.get-execution-id.outcome == 'skipped' }}
+      id: start-execution
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        START_EXECUTION: ${{ github.action_path }}/../../scripts/aws/codepipeline/start-pipeline-execution.sh
+      run: $START_EXECUTION
 
     - name: Await pipeline execution
       shell: bash
       env:
         PIPELINE_NAME: ${{ inputs.pipeline-name }}
-        EXECUTION_ID: ${{ steps.get-execution-id.outputs.execution-id }}
+        EXECUTION_ID: ${{ steps.start-execution.outputs.execution-id || steps.get-execution-id.outputs.execution-id }}
         AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
       run: $AWAIT
+
+    - name: Disable deployment stage
+      if: ${{ always() && inputs.trigger-control == 'true' }}
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+      run: aws codepipeline disable-stage-transition --pipeline-name "$PIPELINE_NAME" \
+        --stage-name Deploy --transition-type Inbound --reason "Deployment trigger controlled by GitHub Actions"

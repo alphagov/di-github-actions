@@ -4,7 +4,7 @@ set -eu
 : "${PIPELINE_NAME}"
 : "${EXECUTION_ID}"
 
-echo -n "Waiting for the pipeline '$PIPELINE_NAME' to finish execution \`$EXECUTION_ID\`..."
+echo -n "Waiting for the pipeline '$PIPELINE_NAME' to finish execution '$EXECUTION_ID'..."
 query="pipelineExecutionSummaries[?pipelineExecutionId=='$EXECUTION_ID'].status"
 
 while [[ ${status:-InProgress} == InProgress ]]; do
