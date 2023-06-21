@@ -62,14 +62,8 @@ runs:
         IMAGE_DIGESTS: ${{ steps.get-image-digests.outputs.digests }}
         REPOSITORY: ${{ inputs.repository }}
         OUTPUT: ${{ runner.temp }}/delete-images.output
-      run: |
-        read -ra digests <<< "$IMAGE_DIGESTS"
-        digests=("${digests[@]/#/imageDigest=}")
-        
-        aws ecr batch-delete-image \
-          --repository-name "$REPOSITORY" \
-          --image-ids "$digests" \
-          --output json | tee "$OUTPUT"
+        DELETE_IMAGES: ${{ github.action_path }}/../../../scripts/aws/ecr/delete-images.sh
+      run: $DELETE_IMAGES >> "$OUTPUT"
 
     - name: Report deleted images
       if: ${{ always() && steps.delete-images.outcome != 'skipped' }}
@@ -78,28 +72,5 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
         RESULTS: ${{ runner.temp }}/delete-images.output
         ERROR_STATUS: ${{ inputs.error-on-failures == 'true' }}
-        REPORT: ${{ github.action_path }}/../../../scripts/report-step-result/print-list.sh
-      run: |
-        deleted_digests=$(jq -r '.imageIds[].imageDigest' "$RESULTS" | sort -u)
-        failed_digests=$(jq -r '.failures[].imageId.imageDigest' "$RESULTS")
-        
-        [[ $deleted_digests ]] && mapfile -t deleted_digests <<< "$deleted_digests" || deleted_digests=()
-        [[ $failed_digests ]] && mapfile -t failed_digests <<< "$failed_digests" || failed_digests=()
-        
-        for digest in "${deleted_digests[@]}"; do
-          tags=$(jq -r --arg digest "$digest" '.imageIds[] | select(.imageDigest == $digest) | .imageTag' "$RESULTS" | xargs)
-          success_messages+=("$digest ($tags)")
-        done
-        
-        for digest in "${failed_digests[@]}"; do
-          failure_reason=$(jq -r --arg digest "$digest" '.failures[] | select(.imageId.imageDigest == $digest) | .failureReason' "$RESULTS")
-          fail_messages+=("\`$digest\`: $failure_reason")
-        done
-        
-        IFS=$'\n' && VALUES="${success_messages[*]}"$'\n' MESSAGE="Deleted images from repository \`${REPOSITORY}\`" \
-          SINGLE_MESSAGE="Deleted image %s from repository \`${REPOSITORY}\`" $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
-        
-        IFS=$'\n' && VALUES="${fail_messages[*]}"$'\n' MESSAGE="Failed to delete images from repository \`${REPOSITORY}\`" \
-          SINGLE_MESSAGE="Failed to delete image from repository \`${REPOSITORY}\`"$'\n'%s CODE_BLOCK=false $REPORT | tee -a "$GITHUB_STEP_SUMMARY"
-        
-        [[ ${#failed_digests[@]} -gt 0 ]] && $ERROR_STATUS && exit 1 || exit 0
+        REPORT: ${{ github.action_path }}/../../../scripts/aws/ecr/report-deleted-images.sh
+      run: $REPORT
