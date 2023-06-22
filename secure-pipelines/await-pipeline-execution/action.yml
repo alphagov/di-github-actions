@@ -1,0 +1,50 @@
+name: "Await pipeline execution for artifact version"
+description: "Wait for a pipeline to finish its execution for the given artifact version"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when awaiting pipeline execution"
+    required: false
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  pipeline-name:
+    description: "Name of the pipeline to await"
+    required: true
+  artifact-version:
+    description: "Version of the artifact that triggered the execution"
+    required: true
+  started-after:
+    description: "Only return an execution that started after the given timestamp"
+    required: false
+  trigger-timeout:
+    description: "The maximum number of minutes to wait for the execution to start"
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Assume AWS Role
+      if: ${{ inputs.aws-role-arn != null }}
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Get execution ID
+      id: get-execution-id
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
+        REVISION_ID: ${{ inputs.artifact-version }}
+        STARTED_AFTER: ${{ inputs.started-after }}
+        EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
+      run: $EXECUTION_ID
+
+    - name: Await pipeline execution
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        EXECUTION_ID: ${{ steps.get-execution-id.outputs.execution-id }}
+        AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
+      run: $AWAIT

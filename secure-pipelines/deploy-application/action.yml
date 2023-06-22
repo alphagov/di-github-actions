@@ -1,5 +1,5 @@
-name: "Upload SAM package to secure pipelines"
-description: "Upload a SAM application package to an S3 bucket for deployment with secure pipelines"
+name: "Deploy an application through secure pipelines"
+description: "Upload a SAM package to secure pipelines and await pipeline execution for the uploaded artifact version"
 inputs:
   aws-role-arn:
     description: "ARN of AWS role to assume when uploading the package to S3"
@@ -14,6 +14,12 @@ inputs:
   signing-profile-name:
     description: "The name of the profile to use for code signing"
     required: true
+  pipeline-name:
+    description: "The name of the deployment pipeline"
+    required: true
+  trigger-timeout:
+    description: "The maximum number of minutes to wait for the pipeline execution to start"
+    required: false
   artifact-name:
     description: "Name of the artifact containing the built SAM application"
     required: false
@@ -28,16 +34,10 @@ inputs:
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
-  pipeline-name:
-    description: "The name of the deployment pipeline"
-    required: false
 outputs:
   pipeline-url:
     description: "The URL of the pipeline consuming the uploaded artifact"
     value: ${{ steps.get-pipeline-url.outputs.pipeline-url }}
-  artifact-version:
-    description: "Version ID of the uploaded artifact"
-    value: ${{ steps.get-version.outputs.artifact-version }}
 runs:
   using: composite
   steps:
@@ -67,6 +67,11 @@ runs:
         VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
       run: $VALIDATE
 
+    - name: Get timestamp
+      id: get-timestamp
+      shell: bash
+      run: echo "timestamp=$(date)" >> "$GITHUB_OUTPUT"
+
     - name: Upload package
       uses: alphagov/di-devplatform-upload-action@v3.3
       with:
@@ -92,3 +97,22 @@ runs:
         PIPELINE_NAME: ${{ inputs.pipeline-name }}
         PIPELINE_URL: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-pipeline-url.sh
       run: $PIPELINE_URL
+
+    - name: Get execution ID
+      id: get-execution-id
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
+        REVISION_ID: ${{ steps.get-version.outputs.artifact-version }}
+        STARTED_AFTER: ${{ steps.get-timestamp.outputs.timestamp }}
+        EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
+      run: $EXECUTION_ID
+
+    - name: Await pipeline execution
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        EXECUTION_ID: ${{ steps.get-execution-id.outputs.execution-id }}
+        AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
+      run: $AWAIT
