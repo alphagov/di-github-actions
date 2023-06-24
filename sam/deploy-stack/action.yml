@@ -8,9 +8,6 @@ inputs:
     description: "AWS region to use"
     required: false
     default: eu-west-2
-  aws-session-name:
-    description: "Override the default AWS session name"
-    required: false
   stack-name:
     description: "Name of the stack to deploy. Derived from branch name if not provided"
     required: false
@@ -23,6 +20,9 @@ inputs:
   sam-deployment-bucket:
     description: "S3 bucket used to store the deployment artifacts"
     required: true
+  template:
+    description: "The template to use for deployment"
+    required: false
   delete-failed-stack:
     description: "Attempt to delete the stack before deploying it if it exists and is in a failed state"
     required: false
@@ -37,6 +37,13 @@ inputs:
   parameters:
     description: "Parameter overrides for the SAM template, encoded as key-value pairs delimited by '|' or newlines"
     required: false
+  pull-repository:
+    description: "Pull the repository before uploading the package"
+    required: false
+    default: "true"
+  artifact-name:
+    description: "The name of the distribution artifact to download"
+    required: false
 outputs:
   stack-name:
     description: "The deployed stack name"
@@ -47,13 +54,32 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Pull repository
+      if: ${{ inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
+
+    - name: Get distribution artifact
+      if: ${{ inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+
+    - name: Validate SAM template
+      if: ${{ inputs.template != null }}
+      shell: bash
+      env:
+        TEMPLATE: ${{ inputs.template }}
+        AWS_REGION: ${{ inputs.aws-region }}
+        VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
+      run: $VALIDATE
+
     - name: Assume AWS Role
-      if: ${{ inputs.aws-role-arn }}
+      if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
-        role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
 
     - name: Parse parameters
       id: parse-parameters
@@ -79,7 +105,7 @@ runs:
 
     - name: Get stack name from branch
       id: get-branch-name
-      if: ${{ inputs.stack-name == null }}
+      if: ${{ always() && inputs.stack-name == null }}
       shell: bash
       env:
         DOWNCASE: true
@@ -93,8 +119,10 @@ runs:
 
     - name: Set stack name
       id: set-stack-name
+      if: ${{ always() }}
       shell: bash
       env:
+        AWS_REGION: ${{ inputs.aws-region }}
         STACK_NAME: ${{ steps.get-branch-name.outputs.stack-name || inputs.stack-name }}
       run: |
         url="https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home#/stacks/stackinfo?stackId=${STACK_NAME}"
@@ -113,9 +141,10 @@ runs:
       id: deploy-stack
       shell: bash
       env:
+        TEMPLATE: ${{ inputs.template }}
         S3_PREFIX: ${{ inputs.s3-prefix }}
         S3_BUCKET: ${{ inputs.sam-deployment-bucket }}
-        DISABLE_ROLLBACK: ${{ inputs.disable-rollback == 'true' }}
+        DISABLE_ROLLBACK: ${{ inputs.disable-rollback == 'true' || '' }}
         PARAMETERS: ${{ steps.parse-parameters.outputs.parameters }}
         TAGS: ${{ steps.parse-tags.outputs.tags }}
       run: |
@@ -123,12 +152,13 @@ runs:
           --stack-name "$STACK_NAME" \
           --s3-bucket "$S3_BUCKET" \
           --s3-prefix "${S3_PREFIX:+$S3_PREFIX/}$STACK_NAME" \
-          $($DISABLE_ROLLBACK && echo "--disable-rollback") \
           --no-confirm-changeset \
           --no-fail-on-empty-changeset \
           --capabilities CAPABILITY_NAMED_IAM \
-          ${PARAMETERS:+--parameter-overrides "$PARAMETERS"} \
-          ${TAGS:+--tags "$TAGS"}
+          ${DISABLE_ROLLBACK:+--disable-rollback} \
+          ${TEMPLATE:+--template $TEMPLATE} \
+          ${PARAMETERS:+--parameter-overrides $PARAMETERS} \
+          ${TAGS:+--tags $TAGS}
 
     - name: Report deployment
       shell: bash

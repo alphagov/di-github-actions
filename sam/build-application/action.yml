@@ -17,6 +17,10 @@ inputs:
   additional-artifact-paths:
     description: "Additional paths to include in the artifact apart from the application"
     required: false
+  upload-artifact:
+    description: "Whether to upload a GitHub Actions artifact"
+    required: false
+    default: "true"
   enable-beta-features:
     description: "Use SAM beta features when building an application"
     required: false
@@ -31,7 +35,7 @@ inputs:
   pull-repository:
     description: "Whether to pull the repository before building"
     required: false
-    default: "true"
+    default: "false"
 outputs:
   artifact-name:
     description: "Pass through the artifact name"
@@ -78,7 +82,7 @@ runs:
           "$($BETA_FEATURES && echo "--beta-features")"
 
     - name: Archive SAM distribution artifact
-      if: ${{ inputs.artifact-name != null }}
+      if: ${{ inputs.upload-artifact && inputs.artifact-name != null }}
       uses: actions/upload-artifact@v3
       with:
         name: ${{ inputs.artifact-name }}
