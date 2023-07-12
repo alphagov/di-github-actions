@@ -8,9 +8,6 @@ inputs:
     description: "AWS region to use"
     required: false
     default: eu-west-2
-  aws-session-name:
-    description: "Override the default AWS session name"
-    required: false
   stack-names:
     description: "Names of the stacks to delete (space or newline-delimited string)"
     required: true
@@ -26,7 +23,6 @@ runs:
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
-        role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
 
     - name: Delete stacks

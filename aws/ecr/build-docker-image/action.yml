@@ -8,9 +8,6 @@ inputs:
     description: "AWS region to use"
     required: false
     default: eu-west-2
-  aws-session-name:
-    description: "Override the default AWS session name"
-    required: false
   registry:
     description: "Registry which contains the specified repository"
     required: false
@@ -28,13 +25,23 @@ inputs:
     description: "Whether the repository is immutable (tags cannot be overwritten)"
     required: false
     default: "true"
-  dockerfile-path:
+  dockerfile:
     description: "Path to the Dockerfile to use"
     required: false
   build-path:
     description: "Path to the directory to build"
     required: false
     default: "."
+  artifact-name:
+    description: "Name of the artifact to download before building the image"
+    required: false
+  artifact-path:
+    description: "Artifact destination path"
+    required: false
+  pull-repository:
+    description: "Whether to pull the repository before building"
+    required: false
+    default: "true"
 outputs:
   registry:
     description: "Registry to which the Docker image was pushed"
@@ -65,7 +72,6 @@ runs:
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
-        role-session-name: ${{ inputs.aws-session-name }}
         aws-region: ${{ inputs.aws-region }}
         mask-aws-account-id: false
 
@@ -117,6 +123,17 @@ runs:
         deleted_image_tags=$(jq -r '.imageIds[].imageTag' <<< "$deleted_image" | xargs)
         echo "🚮 Deleted previous image version (\`$deleted_image_tags\`)" | tee "$GITHUB_STEP_SUMMARY"
 
+    - name: Pull repository
+      if: ${{ steps.check-image-exists.outputs.image-digest == null && inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
+
+    - name: Get distribution artifact
+      if: ${{ steps.check-image-exists.outputs.image-digest == null && inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.artifact-path }}
+
     - name: Build Docker image
       id: build-image
       if: ${{ steps.check-image-exists.outputs.image-digest == null }}
@@ -126,7 +143,7 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_VERSION: ${{ inputs.image-version }}
         IMAGE_TAGS: ${{ inputs.image-tags }}
-        DOCKERFILE: ${{ inputs.dockerfile-path }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
         BUILD_PATH: ${{ inputs.build-path }}
       run: |
         echo "::group::Build image"
@@ -182,4 +199,4 @@ runs:
         REGISTRY: ${{ inputs.registry || steps.login-ecr.outputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_DIGEST: ${{ steps.check-image-exists.outputs.image-digest || steps.report-pushed-image.outputs.image-digest }}
-      run: echo "image-uri=${REGISTRY}/${REPOSITORY}:@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+      run: echo "image-uri=${REGISTRY}/${REPOSITORY}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
