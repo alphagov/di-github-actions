@@ -1,0 +1,13 @@
+{
+  "name": "test-frontend",
+  "version": "1.0.0",
+  "description": "package.json for tests",
+  "scripts": {
+    "build": "yarn minfiy-build-front-end-gov-js",
+    "minfiy-build-front-end-gov-js": "mkdir -p dist/public/javascripts; uglifyjs node_modules/govuk-frontend/govuk/all.js -o dist/public/javascripts/application.js -c -m "
+  },
+  "dependencies": {
+    "govuk-frontend": "^4.7.0",
+    "uglify-js": "^3.17.4"
+  }
+}

@@ -1,0 +1,25 @@
+name: Upload assets test
+
+on: pull_request
+permissions: read-all
+
+jobs:
+  run-tests:
+    name: Test action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull repository
+        uses: actions/checkout@v3
+
+      - name: Set up stub AWS CLI
+        run: echo "./.github/stubs/aws" >> "$GITHUB_PATH"
+
+      - name: use fake package.json
+        run:  mv ./upload-assets/package.json ./package.json
+
+      - name: run upload-assets
+        uses: ./upload-assets
+        with:
+          zip-signing-key-arn: "some-arn"
+          stack-name: "some-stack"
+          destination-bucket-name: "some-bucket"
