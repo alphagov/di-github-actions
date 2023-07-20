@@ -70,5 +70,14 @@ if [[ ${1:-} == ssm ]] && [[ ${2:-} == get-parameters || ${2:-} == get-parameter
   exit 0
 fi
 
+if [[ ${1:-} == s3 ]] && [[ ${2:-} == cp || ${2:-} ]]; then
+  exit 0
+fi
+
+if [[ ${1:-} == kms ]] && [[ ${2:-} == sign || ${2:-} ]]; then
+  echo "dGVzdGluZw=="
+  exit 0
+fi
+
 echo "Unknown command: $*"
 exit 1
