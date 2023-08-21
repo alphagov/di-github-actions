@@ -51,6 +51,9 @@ outputs:
   stack-url:
     description: "The URL of the deployed stack in the AWS console"
     value: ${{ steps.set-stack-name.outputs.stack-url }}
+  stack-outputs:
+    description: "Stack outputs in JSON format"
+    value: ${{ steps.report-deployment.outputs.stack-outputs }}
 runs:
   using: composite
   steps:
@@ -161,10 +164,14 @@ runs:
           ${TAGS:+--tags $TAGS}
 
     - name: Report deployment
+      id: report-deployment
       shell: bash
       env:
         STACK_URL: ${{ steps.set-stack-name.outputs.stack-url }}
-      run: echo "🚀 Deployed [stack \`$STACK_NAME\`]($STACK_URL)" >> "$GITHUB_STEP_SUMMARY"
+      run: |
+        outputs=$(sam list stack-outputs --stack-name "$STACK_NAME" --output json)
+        echo "stack-outputs=$(jq --compact-output 'map({(.OutputKey): .OutputValue}) | add' <<< "$outputs")" >> "$GITHUB_OUTPUT"
+        echo "🚀 Deployed [stack \`$STACK_NAME\`]($STACK_URL)" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Report failed deployment
       if: ${{ failure() && steps.deploy-stack.outcome != 'success' }}
