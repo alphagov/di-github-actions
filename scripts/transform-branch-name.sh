@@ -13,9 +13,9 @@ if [[ $LENGTH_LIMIT -lt 1 ]]; then
   exit 1
 fi
 
+branch_name=$(echo "$branch_name" | cut -c1-"$LENGTH_LIMIT")
 branch_name=$(echo "$branch_name" | tr "." "_" | tr "/" "_")
 $DOWNCASE && branch_name=$(echo "$branch_name" | tr "[:upper:]" "[:lower:]")
 $REPLACE_UNDERSCORES && branch_name=$(echo "$branch_name" | tr "_" "-")
-branch_name=$(echo "$branch_name" | cut -c1-"$LENGTH_LIMIT")
 
-echo "$branch_name"
+echo "${branch_name%%[-_]}"

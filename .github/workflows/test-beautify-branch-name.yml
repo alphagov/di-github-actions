@@ -108,6 +108,32 @@ jobs:
           [[ ${{ steps.prepend-prefix.outputs.pretty-branch-name }} == prefix-long-branch-n ]]
 
 
+      - name: Don't generate a name ending with a hyphen
+        id: not-end-with-hyphen
+        uses: ./beautify-branch-name
+        with:
+          branch-name: branch-name
+          underscores-to-hyphens: true
+          length-limit: 7
+
+      - name: Verify generated name doesn't end with a hyphen
+        run: |
+          [[ ${{ steps.not-end-with-hyphen.outputs.pretty-branch-name }} == branch ]]
+
+
+      - name: Don't generate a name ending with a hyphen
+        id: not-end-with-underscore
+        uses: ./beautify-branch-name
+        with:
+          branch-name: branch_name
+          underscores-to-hyphens: false
+          length-limit: 7
+
+      - name: Verify generated name doesn't end with an underscore
+        run: |
+          [[ ${{ steps.not-end-with-underscore.outputs.pretty-branch-name }} == branch ]]
+
+
       - name: Validate length limit
         id: validate-length-limit
         continue-on-error: true
