@@ -34,6 +34,10 @@ inputs:
   working-directory:
     description: "The working directory containing the SAM app"
     required: false
+  force-upload:
+    description: "Upload a new package even if the artifact for the git SHA is already present in the S3 bucket"
+    required: false
+    default: "false"
 outputs:
   pipeline-url:
     description: "The URL of the pipeline consuming the uploaded artifact"
@@ -41,16 +45,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Pull repository
-      if: ${{ inputs.pull-repository == 'true' }}
-      uses: actions/checkout@v3
-
-    - name: Get distribution artifact
-      if: ${{ inputs.artifact-name != null }}
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ inputs.artifact-name }}
-
     - name: Assume AWS Role
       if: ${{ inputs.aws-role-arn != null }}
       uses: aws-actions/configure-aws-credentials@v2
@@ -59,7 +53,28 @@ runs:
         aws-region: ${{ inputs.aws-region }}
         mask-aws-account-id: false
 
+    - name: Check artifact exists
+      if: ${{ inputs.force-upload != 'true' }}
+      id: check-artifact-exists
+      shell: bash
+      env:
+        ERROR_STATUS: "false"
+        ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION
+
+    - name: Pull repository
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null && inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
+
+    - name: Get distribution artifact
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null && inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+
     - name: Validate SAM template
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
       shell: bash
       env:
         TEMPLATE: ${{ inputs.template }}
@@ -67,12 +82,8 @@ runs:
         VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
       run: $VALIDATE
 
-    - name: Get timestamp
-      id: get-timestamp
-      shell: bash
-      run: echo "timestamp=$(date)" >> "$GITHUB_OUTPUT"
-
     - name: Upload package
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
       uses: alphagov/di-devplatform-upload-action@v3.3
       with:
         signing-profile-name: ${{ inputs.signing-profile-name }}
@@ -81,38 +92,49 @@ runs:
         template-file: ${{ inputs.template }}
 
     - name: Get artifact version
-      id: get-version
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      id: get-uploaded-version
       shell: bash
       env:
         ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
-        VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
-      run: $VERSION
-
-    - name: Get pipeline URL
-      id: get-pipeline-url
-      if: ${{ inputs.pipeline-name != null }}
-      shell: bash
-      env:
-        REGION: ${{ inputs.aws-region }}
-        PIPELINE_NAME: ${{ inputs.pipeline-name }}
-        PIPELINE_URL: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-pipeline-url.sh
-      run: $PIPELINE_URL
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION
 
     - name: Get execution ID
+      if: ${{ steps.get-uploaded-version.outputs.artifact-version != null }}
       id: get-execution-id
       shell: bash
       env:
         PIPELINE_NAME: ${{ inputs.pipeline-name }}
         TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
-        REVISION_ID: ${{ steps.get-version.outputs.artifact-version }}
-        STARTED_AFTER: ${{ steps.get-timestamp.outputs.timestamp }}
-        EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
-      run: $EXECUTION_ID
+        REVISION_ID: ${{ steps.get-uploaded-version.outputs.artifact-version }}
+        STARTED_AFTER: ${{ steps.get-uploaded-version.outputs.artifact-timestamp }}
+        GET_EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
+      run: $GET_EXECUTION_ID
+
+    - name: Start pipeline execution
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version != null }}
+      id: start-execution
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        START_EXECUTION: ${{ github.action_path }}/../../scripts/aws/codepipeline/start-pipeline-execution.sh
+      run: $START_EXECUTION
 
     - name: Await pipeline execution
       shell: bash
       env:
         PIPELINE_NAME: ${{ inputs.pipeline-name }}
-        EXECUTION_ID: ${{ steps.get-execution-id.outputs.execution-id }}
+        EXECUTION_ID: ${{ steps.start-execution.outputs.execution-id || steps.get-execution-id.outputs.execution-id }}
         AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
       run: $AWAIT
+
+    - name: Get pipeline URL
+      if: ${{ always() }}
+      id: get-pipeline-url
+      shell: bash
+      env:
+        REGION: ${{ inputs.aws-region }}
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        GET_PIPELINE_URL: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-pipeline-url.sh
+      run: $GET_PIPELINE_URL

@@ -1,0 +1,212 @@
+name: "Deploy a Fargate application through secure pipelines"
+description: "Push a Docker image, upload a SAM package and await pipeline execution for the uploaded artifact version"
+inputs:
+  aws-role-arn:
+    description: "ARN of AWS role to assume when uploading the package to S3"
+    required: true
+  aws-region:
+    description: "AWS region to use"
+    required: false
+    default: eu-west-2
+  artifact-bucket-name:
+    description: "The name of the bucket to upload the SAM artifact to"
+    required: true
+  container-signing-key-arn:
+    description: "The name of the profile to use for code signing"
+    required: true
+  pipeline-name:
+    description: "The name of the deployment pipeline"
+    required: true
+  ecr-repository:
+    description: "The ECR repository name to push the Docker image"
+    required: true
+  dockerfile:
+    description: "Filepath of the Docker file"
+    required: false
+  template:
+    description: "Filepath of the SAM application template"
+    required: false
+    default: template.yaml
+  build-directory:
+    description: "The base directory to use when building the SAM app"
+    required: false
+  docker-build-path:
+    description: "The base directory to use when building the docker image"
+    required: false
+  pull-repository:
+    description: "Pull the repository before uploading the package"
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name of the artifact containing the built SAM application"
+    required: false
+  artifact-path:
+    description: "Artifact destination path"
+    required: false
+  trigger-timeout:
+    description: "The maximum number of minutes to wait for the pipeline execution to start"
+    required: false
+  image-uri-param:
+    description: "The name of the image URI parameter in the CloudFormation template"
+    required: false
+    default: ImageURI
+outputs:
+  pipeline-url:
+    description: "The URL of the pipeline consuming the uploaded artifact"
+    value: ${{ steps.get-pipeline-url.outputs.pipeline-url }}
+runs:
+  using: composite
+  steps:
+    - name: Pull repository
+      if: ${{ inputs.pull-repository == 'true' }}
+      uses: actions/checkout@v3
+
+    - name: Get distribution artifact
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null && inputs.artifact-name != null }}
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.artifact-path }}
+
+    - name: Assume AWS Role
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-session-name: ${{ inputs.aws-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      with:
+        mask-password: true
+
+    - name: Validate SAM template
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      shell: bash
+      env:
+        TEMPLATE: ${{ inputs.template }}
+        AWS_REGION: ${{ inputs.aws-region }}
+        VALIDATE: ${{ github.action_path }}/../../scripts/aws/sam/validate-template.sh
+      run: $VALIDATE
+
+    - name: Check artifact exists
+      id: check-artifact-exists
+      shell: bash
+      env:
+        ERROR_STATUS: "false"
+        ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION
+
+    - name: Check image exists
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      id: check-image-exists
+      shell: bash
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.ecr-repository }}
+        IMAGE_TAGS: ${{ github.sha }}
+        VERBOSE: "true"
+        CHECK_IMAGE: ${{ github.action_path }}/../../scripts/aws/ecr/check-image-exists.sh
+      run: $CHECK_IMAGE
+
+    - name: Delete image
+      id: delete-image
+      if: ${{ steps.check-image-exists.outputs.image-digest != null }}
+      shell: bash
+      env:
+        IMAGE_DIGESTS: ${{ steps.check-image-exists.outputs.image-digest }}
+        REPOSITORY: ${{ inputs.ecr-repository }}
+        OUTPUT: ${{ runner.temp }}/delete-image.output
+        DELETE_IMAGES: ${{ github.action_path }}/../../scripts/aws/ecr/delete-images.sh
+      run: $DELETE_IMAGES >> "$OUTPUT"
+
+    - name: Report deleted image
+      if: ${{ always() && steps.delete-image.outcome != 'skipped' }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.ecr-repository }}
+        RESULTS: ${{ runner.temp }}/delete-image.output
+        ERROR_STATUS: "true"
+        REPORT: ${{ github.action_path }}/../../scripts/aws/ecr/report-deleted-images.sh
+      run: $REPORT
+
+    - name: Get timestamp
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      id: get-timestamp
+      shell: bash
+      run: echo "timestamp=$(date)" >> "$GITHUB_OUTPUT"
+
+    - name: Set image URI
+      shell: bash
+      env:
+        PARAM: ${{ inputs.image-uri-param }}
+        COMMIT_SHA: ${{ github.sha }}
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ inputs.ecr-repository }}
+        TEMPLATE: ${{ inputs.template }}
+      run: yq eval -i ".Parameters.$PARAM.Default=\"$REGISTRY/$REPOSITORY:$COMMIT_SHA\"" "$TEMPLATE"
+
+    - name: Push image and upload package
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
+      id: upload-package
+      uses: alphagov/di-devplatform-upload-action-ecr@1.0.4
+      with:
+        role-to-assume-arn: ${{ inputs.aws-role-arn }}
+        container-sign-kms-key-arn: ${{ inputs.container-signing-key-arn }}
+        template-file: ${{ inputs.template }}
+        sam-base-directory: ${{ inputs.build-directory }}
+        artifact-bucket-name: ${{ inputs.artifact-bucket-name }}
+        ecr-repo-name: ${{ inputs.ecr-repository }}
+        dockerfile: ${{ inputs.dockerfile }}
+        docker-build-path: ${{ inputs.docker-build-path }}
+        checkout-repo: false
+
+    - name: Get artifact version
+      if: ${{ steps.upload-package.outcome != 'skipped' }}
+      id: get-version
+      shell: bash
+      env:
+        ARTIFACT_BUCKET: ${{ inputs.artifact-bucket-name }}
+        GET_VERSION: ${{ github.action_path }}/../../scripts/secure-pipelines/get-artifact-version.sh
+      run: $GET_VERSION
+
+    - name: Get execution ID
+      if: ${{ steps.get-version.outputs.artifact-version != null }}
+      id: get-execution-id
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        TIMEOUT_MINS: ${{ inputs.trigger-timeout }}
+        REVISION_ID: ${{ steps.get-version.outputs.artifact-version }}
+        STARTED_AFTER: ${{ steps.get-timestamp.outputs.timestamp }}
+        GET_EXECUTION_ID: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-execution-id.sh
+      run: $GET_EXECUTION_ID
+
+    - name: Start pipeline execution
+      if: ${{ steps.check-artifact-exists.outputs.artifact-version != null }}
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        START_EXECUTION: ${{ github.action_path }}/../../scripts/aws/codepipeline/start-pipeline-execution.sh
+      run: $START_EXECUTION
+
+    - name: Await pipeline execution
+      shell: bash
+      env:
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        EXECUTION_ID: ${{ steps.start-execution.outputs.execution-id || steps.get-execution-id.outputs.execution-id }}
+        AWAIT: ${{ github.action_path }}/../../scripts/aws/codepipeline/await-pipeline-execution.sh
+      run: $AWAIT
+
+    - name: Get pipeline URL
+      if: ${{ always() }}
+      id: get-pipeline-url
+      shell: bash
+      env:
+        REGION: ${{ inputs.aws-region }}
+        PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        GET_PIPELINE_URL: ${{ github.action_path }}/../../scripts/aws/codepipeline/get-pipeline-url.sh
+      run: $GET_PIPELINE_URL

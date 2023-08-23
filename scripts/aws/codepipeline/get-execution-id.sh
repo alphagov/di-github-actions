@@ -9,7 +9,7 @@ set -eu
 [[ $STARTED_AFTER ]] && start=$(date --date="$STARTED_AFTER" +%s)
 [[ $TIMEOUT_MINS ]] && timeout=$((TIMEOUT_MINS * 60)) elapsed=0
 
-echo -n "Waiting for the pipeline '$PIPELINE_NAME' to start execution..."
+echo -n "Waiting for the pipeline '$PIPELINE_NAME' to start execution for revision '$REVISION_ID'..."
 query="pipelineExecutionSummaries[?contains(sourceRevisions[].revisionId, '$REVISION_ID')]|[0]"
 
 while true; do
@@ -17,7 +17,7 @@ while true; do
 
   if [[ $execution != null ]]; then
     [[ ${start:-} ]] || break
-    [[ $start < $(date --date="$(jq --raw-output '.startTime' <<< "$execution")" +s%) ]] && break
+    [[ $start < $(date --date="$(jq --raw-output '.startTime' <<< "$execution")" +%s) ]] && break
   fi
 
   [[ ${timeout:-} ]] && elapsed=$((elapsed + 5)) && [[ $elapsed -gt $timeout ]] && unset execution && break
