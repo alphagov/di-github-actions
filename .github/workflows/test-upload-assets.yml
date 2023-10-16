@@ -17,9 +17,14 @@ jobs:
       - name: use fake package.json
         run:  mv ./upload-assets/package.json ./package.json
 
+      - name: make fake sass
+        run: echo "@import \"../../../node_modules/govuk-frontend/govuk/base\";" > fakesass.scss
+
       - name: run upload-assets
         uses: ./upload-assets
         with:
           zip-signing-key-arn: "some-arn"
           stack-name: "some-stack"
           destination-bucket-name: "some-bucket"
+          npm-or-yarn: 'npm'
+          path-to-sass: './fakesass.scss'

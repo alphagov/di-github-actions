@@ -1,41 +1,44 @@
 name: "Upload assets to the shared CDN"
-description: "Upload some static assets to the assets.account.gov.uk CDN - this runs yarn install/build
-then uploads the ./dist/public folder to <stack-name>/public"
+description: "Upload some static assets to the assets.account.gov.uk CDN - this runs yarn/npm install/build
+then uploads the ./dist/public folder to <stack-name>/public, and specifies the path to your version of the
+govuk-frontend node module."
 inputs:
   zip-signing-key-arn:
-    description: "ARN of the KMS key to sign the Zip file"
+    description: "ARN of the KMS key to sign the Zip file."
     required: true
   stack-name:
-    description: "The unique name for this front end (eg core-front or auth-front)"
+    description: "The unique name for this front end (eg core-front or auth-front)."
     required: true
   destination-bucket-name:
-    description: "The S3 bucket name where this asset package will be uploaded"
+    description: "The S3 bucket name where this asset package will be uploaded."
     required: true
   base-path:
-    description: "The path to the folder with package.json file"
+    description: "The path to the folder with package.json file."
     required: false
     default: ""
+  npm-or-yarn:
+    description: "Choose your build tool, npm or yarn."
+    required: true
+    options:
+      - npm
+      - yarn
+  path-to-sass:
+    description: "The path to the main sass file with \"@import <path to govuk-frontend module>\""
+    required: false
+    default: ""
+
 
 runs:
   using: composite
   steps:
-  - name: yarn build assets, zip, sign and push to s3
-    shell: bash
-    env:
-      ZIP_SIGNING_KEY: ${{ inputs.zip-signing-key-arn }}
-      STACK_NAME: ${{ inputs.stack-name }}
-      ARTIFACT_BUCKET: ${{ inputs.destination-bucket-name }}
-      BASE_PATH: ${{ inputs.base-path }}
-    run: |
-      cd ${GITHUB_WORKSPACE}$BASE_PATH || exit 1
-      rm -rf ./public
-      yarn install
-      yarn build
-      cat ./node_modules/govuk-frontend/package.json | jq '.version' | tr -d '"' > ./govuk_fe_version.txt
-      mv ./dist/public ./public
-      zip -r ./public.zip ./public/*
-      md5sum ./public.zip | cut -c -32 > zipsum.txt
-      aws kms sign --key-id $ZIP_SIGNING_KEY --message fileb://zipsum.txt --signing-algorithm RSASSA_PSS_SHA_256 --message-type RAW --output text --query Signature | base64 --decode > ZipSignature
-      zip -r ./$STACK_NAME.zip ./public.zip ./ZipSignature ./govuk_fe_version.txt
-      aws s3 cp $STACK_NAME.zip "s3://$ARTIFACT_BUCKET/$STACK_NAME.zip" --metadata "repository=$GITHUB_REPOSITORY,commitsha=$GITHUB_SHA"
-      echo "assets zip file uploaded"
+
+    - name: yarn build assets, zip, sign and push to s3
+      shell: bash
+      env:
+        ZIP_SIGNING_KEY: ${{ inputs.zip-signing-key-arn }}
+        STACK_NAME: ${{ inputs.stack-name }}
+        ARTIFACT_BUCKET: ${{ inputs.destination-bucket-name }}
+        BASE_PATH: ${{ inputs.base-path }}
+        NPM_OR_YARN: ${{ inputs.npm-or-yarn }}
+        PATH_TO_SASS: ${{ inputs.path-to-sass }}
+      run: ${{ github.action_path }}/scripts/upload-assets.sh
