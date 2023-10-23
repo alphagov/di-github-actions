@@ -1,5 +1,6 @@
 shopt -s extglob nullglob
 set -eu -o pipefail
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${TEMPLATE:-}"            # The template to validate
 : "${AWS_REGION:=eu-west-2}" # The AWS region to use when validating

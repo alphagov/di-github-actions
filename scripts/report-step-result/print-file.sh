@@ -1,4 +1,5 @@
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${FILE:=/dev/stdin}"  # Path to the file to append to the report, or read from standard input
 : "${TITLE:=}"           # Message to print above the report

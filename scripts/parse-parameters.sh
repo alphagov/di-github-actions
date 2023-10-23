@@ -1,4 +1,5 @@
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${PARAMETERS}"               # The parameters to parse
 : "${ASSOCIATIVE_ARRAY:=false}" # Whether to encode output as a string representing an associative array

@@ -1,6 +1,8 @@
 # Returns four arrays with deleted, failed, ignored and missing stacks
 
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
+
 base_dir="$(dirname "${BASH_SOURCE[0]}")"
 report="$base_dir"/../../report-step-result/print-list.sh
 failed=()

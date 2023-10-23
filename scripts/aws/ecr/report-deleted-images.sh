@@ -1,5 +1,6 @@
 # Parse the JSON format output of the 'aws ecr batch-delete-image' command and pretty print it
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${RESULTS}"            # JSON output of the ecr:BatchDeleteImage operation
 : "${REPOSITORY}"         # ECR repository the images were deleted from

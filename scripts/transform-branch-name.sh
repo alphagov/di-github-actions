@@ -1,4 +1,5 @@
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${PREFIX:=}"                  # '${prefix}-' will be prepended to the returned string; included in the length limit
 : "${BRANCH_NAME:=}"             # Override the branch name to transform

@@ -1,5 +1,6 @@
 # Get a pipeline execution ID for a given revision ID that started after a given timestamp
 set -eu
+echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${PIPELINE_NAME}"
 : "${REVISION_ID}"     # The artifact version that triggered the execution

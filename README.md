@@ -1,3 +1,7 @@
+# Archived
+
+This repository has been archived. We will continue to develop it at the new location: [govuk-one-login/github-actions][1]
+
 # di-github-actions
 
 This repository contains shared GitHub Actions to be used across Digital Identity projects.
