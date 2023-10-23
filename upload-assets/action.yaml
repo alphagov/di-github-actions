@@ -26,6 +26,14 @@ inputs:
     description: "The path to the main sass file with \"@import <path to govuk-frontend module>\""
     required: false
     default: ""
+  path-to-template:
+    description: "The path to the main template.yaml file with the ECS task definition"
+    required: false
+    default: ""
+  env-var-name:
+    description: "The name of the env var to replace with hashed path"
+    required: false
+    default: ""
 
 
 runs:
@@ -41,4 +49,6 @@ runs:
         BASE_PATH: ${{ inputs.base-path }}
         NPM_OR_YARN: ${{ inputs.npm-or-yarn }}
         PATH_TO_SASS: ${{ inputs.path-to-sass }}
+        PATH_TO_TEMPLATE: ${{ inputs.path-to-template }}
+        ENV_VAR_NAME: ${{ inputs.env-var-name }}
       run: ${{ github.action_path }}/scripts/upload-assets.sh

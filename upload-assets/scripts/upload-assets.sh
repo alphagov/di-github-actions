@@ -24,3 +24,4 @@ aws kms sign --key-id "$ZIP_SIGNING_KEY" --message fileb://zipsum.txt --signing-
 zip -r ./"$STACK_NAME".zip ./public.zip ./ZipSignature ./govuk_fe_version.txt
 aws s3 cp "$STACK_NAME".zip "s3://$ARTIFACT_BUCKET/$STACK_NAME.zip" --metadata "repository=$GITHUB_REPOSITORY,commitsha=$GITHUB_SHA"
 echo "assets zip file uploaded"
+sed "s/(${ENV_VAR_NAME}"
