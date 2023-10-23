@@ -1,6 +1,5 @@
 # Wait for a pipeline to finish the execution with the given ID
 set -eu
-echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${PIPELINE_NAME}"
 : "${EXECUTION_ID}"

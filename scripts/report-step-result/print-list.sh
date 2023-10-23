@@ -1,5 +1,4 @@
 set -eu
-echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
 
 : "${VALUES}"           # Values to append to the job summary, space or newline-delimited string
 : "${MESSAGE}"          # Message to print before the list

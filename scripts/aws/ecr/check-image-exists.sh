@@ -1,8 +1,6 @@
 # Check if a docker image with the specified tags exists in a repository.
 # Return the image digest, if it exists, and optionally print a message to the step summary.
 set -eu
-echo "::warning title=alphagov/di-github-actions::The repository hosting this upload action has been archived. New location https://github.com/govuk-one-login/github-actions"
-
 base_dir="$(dirname "${BASH_SOURCE[0]}")"
 
 : "${REGISTRY:-}"     # ECR registry ID
