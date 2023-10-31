@@ -79,7 +79,7 @@ runs:
 
     - name: Upload package
       if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
-      uses: alphagov/di-devplatform-upload-action@v3.3
+      uses: govuk-one-login/devplatform-upload-action@v3.3
       with:
         signing-profile-name: ${{ inputs.signing-profile-name }}
         artifact-bucket-name: ${{ inputs.artifact-bucket-name }}

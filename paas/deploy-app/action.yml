@@ -50,7 +50,7 @@ runs:
   using: composite
   steps:
     - name: Auth to PaaS
-      uses: alphagov/di-github-actions/paas/log-in-to-paas@92639740da7f67f445d10711e7b0fc1c9022f602
+      uses: govuk-one-login/github-actions/paas/log-in-to-paas@92639740da7f67f445d10711e7b0fc1c9022f602
       with:
         cf-org-name: ${{ inputs.cf-org-name }}
         cf-space-name: ${{ inputs.cf-space-name }}

@@ -152,7 +152,7 @@ runs:
     - name: Push image and upload package
       if: ${{ steps.check-artifact-exists.outputs.artifact-version == null }}
       id: upload-package
-      uses: alphagov/di-devplatform-upload-action-ecr@1.0.4
+      uses: govuk-one-login/devplatform-upload-action-ecr@1.0.4
       with:
         role-to-assume-arn: ${{ inputs.aws-role-arn }}
         container-sign-kms-key-arn: ${{ inputs.container-signing-key-arn }}
